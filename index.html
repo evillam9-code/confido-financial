@@ -482,9 +482,26 @@ function addLog(accion,detalle){
 let currentUser=null;
 let loginIntentos=0,loginBloqueado=false,loginTimer=null;
 
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('login-empresa').textContent = DB.config.empresa||'Sistema de Préstamos';
+document.addEventListener('DOMContentLoaded', async ()=>{
   document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+  // Esperar Firebase antes de permitir login
+  const loginBtn = document.querySelector('.btn-login');
+  if(loginBtn){ loginBtn.disabled=true; loginBtn.textContent='Conectando...'; }
+  try {
+    if(typeof fbIniciar === 'function'){
+      await fbIniciar();
+      // Recargar DB con datos de Firebase
+      const keys=['config','users','clientes','prestamos','pagos','abonos','gastos','nomina_emp','nomina_pagos','log'];
+      keys.forEach(k=>{
+        const v=localStorage.getItem('sp_'+k);
+        if(v){ try{ DB[k]=JSON.parse(v); }catch(e){} }
+      });
+    }
+  } catch(e){ console.warn('Firebase init error:', e); }
+  finally {
+    if(loginBtn){ loginBtn.disabled=false; loginBtn.textContent='Ingresar al sistema'; }
+  }
+  document.getElementById('login-empresa').textContent = DB.config.empresa||'Sistema de Préstamos';
   applyConfig();
   applyEstilos();
 });
