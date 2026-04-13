@@ -482,26 +482,9 @@ function addLog(accion,detalle){
 let currentUser=null;
 let loginIntentos=0,loginBloqueado=false,loginTimer=null;
 
-document.addEventListener('DOMContentLoaded', async ()=>{
-  document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-  // Esperar Firebase antes de permitir login
-  const loginBtn = document.querySelector('.btn-login');
-  if(loginBtn){ loginBtn.disabled=true; loginBtn.textContent='Conectando...'; }
-  try {
-    if(typeof fbIniciar === 'function'){
-      await fbIniciar();
-      // Recargar DB con datos de Firebase
-      const keys=['config','users','clientes','prestamos','pagos','abonos','gastos','nomina_emp','nomina_pagos','log'];
-      keys.forEach(k=>{
-        const v=localStorage.getItem('sp_'+k);
-        if(v){ try{ DB[k]=JSON.parse(v); }catch(e){} }
-      });
-    }
-  } catch(e){ console.warn('Firebase init error:', e); }
-  finally {
-    if(loginBtn){ loginBtn.disabled=false; loginBtn.textContent='Ingresar al sistema'; }
-  }
+document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('login-empresa').textContent = DB.config.empresa||'Sistema de Préstamos';
+  document.getElementById('li-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
   applyConfig();
   applyEstilos();
 });
@@ -1209,6 +1192,15 @@ function badgeEstado(estado){
 // NUEVO PRÉSTAMO
 // ══════════════════════════════════════════════════════════════
 function renderNuevoPrestamo(){
+  // Si no hay clientes cargados pero Firebase está activo, intentar recargar
+  if(DB.clientes.length===0 && window._fbActivo){
+    fbCargar().then(()=>{
+      applyConfig();
+      renderNuevoPrestamo();
+    });
+    document.getElementById('page-nuevo-prestamo').innerHTML='<div style="padding:40px;text-align:center;color:var(--gray)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div style="font-size:15px;font-weight:600">Cargando datos...</div><div style="font-size:12px;margin-top:8px">Obteniendo clientes de Firebase</div></div>';
+    return;
+  }
   document.getElementById('page-nuevo-prestamo').innerHTML=`
     <div class="page-header"><h1 data-edit="titulo-prestamo" data-edit-label="Título Nuevo Préstamo" onclick="edClick(this)" style="cursor:default">💰 Nuevo Préstamo</h1><p>Registrar un nuevo crédito</p></div>
     <div>
@@ -1405,8 +1397,12 @@ function npGuardar(){
   const cobrador=document.getElementById('np-cobrador').value.trim();
   const notas=document.getElementById('np-notas').value.trim();
   if(!idCliente){toast('Selecciona un cliente','error');return;}
-  if(!monto||!tasa||!ncuotas){toast('Completa monto, tasa y cuotas','error');return;}
+  if(!monto||monto<=0){toast('El monto debe ser mayor a 0','error');return;}
+  if(!tasa||tasa<=0){toast('La tasa mensual debe ser mayor a 0','error');return;}
+  if(!ncuotas||ncuotas<=0){toast('El número de cuotas debe ser mayor a 0','error');return;}
+  if(!fecha){toast('Selecciona la fecha del préstamo','error');return;}
   const cliente=DB.clientes.find(c=>c.id===idCliente);
+  if(!cliente){toast('Cliente no encontrado. Verifica que los datos estén cargados e intenta de nuevo.','error');return;}
   const modalidad=document.getElementById('np-modalidad').value;
   const moneda=document.getElementById('np-moneda').value;
   const entrega=document.getElementById('np-entrega').value;
