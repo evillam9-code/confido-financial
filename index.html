@@ -200,6 +200,41 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 /* PROGRESS */
 .progress-bar{height:6px;background:var(--gray3);border-radius:3px;overflow:hidden;margin-top:4px}
 .progress-fill{height:100%;border-radius:3px;transition:.3s}
+/* ══════════════════════════════════
+   RESPONSIVE MÓVIL
+══════════════════════════════════ */
+.sidebar-toggle{display:none}
+.sidebar-overlay{display:none;position:fixed;inset:0;top:56px;background:rgba(0,0,0,.4);z-index:199}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  .login-card{width:92vw;padding:32px 20px}
+  .topbar{padding:0 12px;gap:10px}
+  .topbar-brand{font-size:14px}
+  .user-name{display:none}
+  .sidebar-toggle{display:flex!important;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,.12);border:none;color:#fff;font-size:20px;cursor:pointer;flex-shrink:0;margin-right:4px}
+  .sidebar{position:fixed;top:56px;left:0;height:calc(100vh - 56px);z-index:200;transform:translateX(-100%);transition:transform .25s ease;box-shadow:4px 0 24px rgba(0,0,0,.18);width:240px!important}
+  .sidebar.open{transform:translateX(0)}
+  .layout{flex-direction:column}
+  .main{padding:14px 12px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat-card{padding:14px}
+  .stat-value{font-size:17px}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px}
+  table{min-width:500px;font-size:12px}
+  th,td{padding:8px 10px}
+  .card{padding:14px}
+  .btn{padding:9px 14px;font-size:13px}
+  .btn-sm{padding:6px 10px;font-size:11px}
+  .modal-box{width:94vw!important;max-width:94vw!important;padding:20px 16px;max-height:88vh;overflow-y:auto}
+  select,input[type=text],input[type=number],input[type=date],input[type=email],input[type=password],textarea{font-size:16px!important}
+  .page-header h1{font-size:18px}
+  .r-wrap{flex-direction:column}
+  .r-half{width:100%!important}
+}
+@media(max-width:400px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .login-card{padding:24px 14px}
+}
 /* FACTURA PRINT */
 @media print{
   /* Modo normal — ocultar todo excepto el contenido de impresión */
@@ -269,8 +304,11 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 </div>
 <!-- ══ APP ══ -->
 <div id="app">
+  <!-- Overlay para cerrar sidebar en móvil -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
   <!-- TOPBAR -->
   <div class="topbar">
+    <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Menú">☰</button>
     <div class="topbar-brand">🏦 <span id="top-empresa">Préstamos</span></div>
     <div id="fb-status" style="display:flex;align-items:center;gap:6px;font-size:11px;color:#94a3b8;margin-left:8px">
       <span id="fb-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;display:inline-block"></span>
@@ -489,36 +527,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   applyEstilos();
 });
 
-function doLogin(){
-  if(loginBloqueado){document.getElementById('login-blocked').style.display='block';return;}
-  const u=document.getElementById('li-user').value.trim();
-  const p=document.getElementById('li-pass').value;
-  const user=DB.users.find(x=>x.username===u&&x.password===p&&x.activo);
-  if(!user){
-    loginIntentos++;
-    const r=3-loginIntentos;
-    if(loginIntentos>=3){
-      loginBloqueado=true;
-      document.getElementById('login-error').style.display='none';
-      document.getElementById('login-blocked').style.display='block';
-      document.getElementById('li-user').disabled=true;
-      document.getElementById('li-pass').disabled=true;
-      document.querySelector('.btn-login').disabled=true;
-      let s=30;document.getElementById('login-countdown').textContent=s;
-      loginTimer=setInterval(()=>{
-        s--;document.getElementById('login-countdown').textContent=s;
-        if(s<=0){clearInterval(loginTimer);loginBloqueado=false;loginIntentos=0;
-          document.getElementById('login-blocked').style.display='none';
-          document.getElementById('li-user').disabled=false;document.getElementById('li-pass').disabled=false;
-          document.querySelector('.btn-login').disabled=false;document.getElementById('li-pass').value='';
-        }
-      },1000);
-    } else {
-      document.getElementById('login-error').textContent=`Usuario o contraseña incorrectos. ${r} intento${r===1?'':'s'} restante${r===1?'':'s'}.`;
-      document.getElementById('login-error').style.display='block';
-    }
-    return;
-  }
+function _ejecutarLogin(user){
   loginIntentos=0;loginBloqueado=false;if(loginTimer)clearInterval(loginTimer);
   currentUser=user;
   addLog('LOGIN','Inicio de sesión exitoso');
@@ -532,17 +541,87 @@ function doLogin(){
     fbIniciar().then(()=>{ mostrarBienvenida(user); applyConfig(); });
   } else {
     mostrarBienvenida(user);
-  // Sincronizar con Firebase
-  if(typeof fbIniciar==='function') fbIniciar().then(()=>{
-    // Refrescar la pantalla actual después de cargar datos de Firebase
-    setTimeout(()=>{
-      const paginaActual=document.querySelector('.page.active');
-      if(paginaActual){
-        const id=paginaActual.id.replace('page-','');
-        if(typeof ROUTERS!=='undefined'&&ROUTERS[id]) ROUTERS[id]();
+  }
+}
+
+function doLogin(){
+  if(loginBloqueado){document.getElementById('login-blocked').style.display='block';return;}
+  const u=document.getElementById('li-user').value.trim();
+  const p=document.getElementById('li-pass').value;
+
+  // Primero buscar en datos locales/cacheados
+  const user=DB.users.find(x=>x.username===u&&x.password===p&&x.activo);
+  if(user){ _ejecutarLogin(user); return; }
+
+  // Si no está localmente, intentar cargar desde Firebase antes de rechazar
+  if(typeof fbCargar==='function'){
+    const btnLogin=document.querySelector('.btn-login');
+    const errEl=document.getElementById('login-error');
+    errEl.style.display='none';
+    if(btnLogin){ btnLogin.disabled=true; btnLogin.textContent='Verificando...'; }
+    fbCargar().then(()=>{
+      if(btnLogin){ btnLogin.disabled=false; btnLogin.textContent='Ingresar al sistema'; }
+      const userFB=DB.users.find(x=>x.username===u&&x.password===p&&x.activo);
+      if(userFB){
+        _ejecutarLogin(userFB);
+      } else {
+        loginIntentos++;
+        const r=3-loginIntentos;
+        if(loginIntentos>=3){
+          loginBloqueado=true;
+          errEl.style.display='none';
+          document.getElementById('login-blocked').style.display='block';
+          document.getElementById('li-user').disabled=true;
+          document.getElementById('li-pass').disabled=true;
+          btnLogin.disabled=true;
+          let s=30;document.getElementById('login-countdown').textContent=s;
+          loginTimer=setInterval(()=>{
+            s--;document.getElementById('login-countdown').textContent=s;
+            if(s<=0){clearInterval(loginTimer);loginBloqueado=false;loginIntentos=0;
+              document.getElementById('login-blocked').style.display='none';
+              document.getElementById('li-user').disabled=false;
+              document.getElementById('li-pass').disabled=false;
+              btnLogin.disabled=false;
+              document.getElementById('li-pass').value='';
+            }
+          },1000);
+        } else {
+          errEl.textContent=`Usuario o contraseña incorrectos. ${r} intento${r===1?'':'s'} restante${r===1?'':'s'}.`;
+          errEl.style.display='block';
+        }
       }
-    },300);
-  });
+    }).catch(()=>{
+      if(btnLogin){ btnLogin.disabled=false; btnLogin.textContent='Ingresar al sistema'; }
+      loginIntentos++;
+      const r=3-loginIntentos;
+      document.getElementById('login-error').textContent=`Usuario o contraseña incorrectos. ${r} intento${r===1?'':'s'} restante${r===1?'':'s'}.`;
+      document.getElementById('login-error').style.display='block';
+    });
+    return;
+  }
+
+  // Sin Firebase disponible: error normal
+  loginIntentos++;
+  const r=3-loginIntentos;
+  if(loginIntentos>=3){
+    loginBloqueado=true;
+    document.getElementById('login-error').style.display='none';
+    document.getElementById('login-blocked').style.display='block';
+    document.getElementById('li-user').disabled=true;
+    document.getElementById('li-pass').disabled=true;
+    document.querySelector('.btn-login').disabled=true;
+    let s=30;document.getElementById('login-countdown').textContent=s;
+    loginTimer=setInterval(()=>{
+      s--;document.getElementById('login-countdown').textContent=s;
+      if(s<=0){clearInterval(loginTimer);loginBloqueado=false;loginIntentos=0;
+        document.getElementById('login-blocked').style.display='none';
+        document.getElementById('li-user').disabled=false;document.getElementById('li-pass').disabled=false;
+        document.querySelector('.btn-login').disabled=false;document.getElementById('li-pass').value='';
+      }
+    },1000);
+  } else {
+    document.getElementById('login-error').textContent=`Usuario o contraseña incorrectos. ${r} intento${r===1?'':'s'} restante${r===1?'':'s'}.`;
+    document.getElementById('login-error').style.display='block';
   }
 }
 
@@ -585,6 +664,14 @@ function doLogout(){
 }
 
 function toggleUserMenu(){document.getElementById('user-menu').classList.toggle('open');}
+function toggleSidebar(){
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(!sb||!ov)return;
+  const isOpen=sb.classList.contains('open');
+  sb.classList.toggle('open',!isOpen);
+  ov.classList.toggle('open',!isOpen);
+}
 document.addEventListener('click',e=>{if(!e.target.closest('.topbar-user'))document.getElementById('user-menu').classList.remove('open');});
 
 function can(mod){return currentUser&&(isDueno()||currentUser.permisos?.includes(mod));}
@@ -641,6 +728,10 @@ function showPage(id){
   if(id!=='perfil'&&!can(id)){return;}
   const mod=MODULOS.find(m=>m.id===id);
   if(mod&&mod.adminOnly&&!isAdmin()){toast('Acceso restringido — solo Administrador','error');return;}
+  // Cerrar sidebar en móvil al navegar
+  const sb=document.getElementById('sidebar');
+  const ov=document.getElementById('sidebar-overlay');
+  if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
@@ -3983,10 +4074,27 @@ async function fbCargar(){
       const snap = await _fbDB.collection(_fbCol).doc(key).get();
       if(snap.exists){
         const val = JSON.parse(snap.data().valor);
-        if(val!==null){ DB[key]=val; loaded=true; }
+        if(val!==null){
+          // Para usuarios: fusionar Firebase con localStorage, nunca perder usuarios
+          if(key==='users' && Array.isArray(val) && Array.isArray(DB[key])){
+            const merged = [...val];
+            DB[key].forEach(localUser => {
+              if(!merged.find(u=>u.id===localUser.id)){
+                merged.push(localUser);
+              }
+            });
+            // Nunca dejar lista vacía: si Firebase trae vacío, conservar locales
+            DB[key] = merged.length > 0 ? merged : DB[key];
+          } else {
+            DB[key]=val;
+          }
+          loaded=true;
+        }
       }
     } catch(e){ console.warn('FB load error:', e.message); }
   }
+  // Guardar usuarios fusionados en localStorage inmediatamente
+  try{ ss('users', DB['users']); } catch(e){}
   return loaded;
 }
 
@@ -4020,6 +4128,16 @@ window.fbIniciar = async function(){
     if(loaded){
       applyConfig();
       if(typeof applyEstilos==='function') applyEstilos();
+      // Proteger sesión activa: si el usuario logueado no está en los datos de Firebase, conservarlo
+      if(currentUser){
+        const userActualizado = DB.users.find(u=>u.id===currentUser.id);
+        if(userActualizado){
+          currentUser = userActualizado;
+        } else {
+          DB.users.push(currentUser);
+          sDB('users');
+        }
+      }
       setStatus('#22c55e','✓ Firebase');
       console.log('✅ Firebase: datos cargados');
     } else {
