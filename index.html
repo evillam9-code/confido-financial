@@ -761,12 +761,19 @@ function buildNav(){
   document.getElementById('sidebar').innerHTML=html;
 }
 
+// Wrap renders para aplicar responsive automaticamente
+function wrapRender(fn){
+  return function(){
+    fn();
+    setTimeout(aplicarResponsivo,50);
+  };
+}
 const ROUTERS={
-  dashboard:renderDashboard,clientes:renderClientes,'nuevo-prestamo':renderNuevoPrestamo,
-  prestamos:renderPrestamos,pagos:renderPagos,vencidas:renderVencidas,
-  gastos:renderGastos,nomina:renderNomina,informes:renderInformes,usuarios:renderUsuarios,config:renderConfig,
-  perfil:renderPerfil,
-  log:renderBitacora,
+  dashboard:wrapRender(renderDashboard),clientes:wrapRender(renderClientes),'nuevo-prestamo':wrapRender(renderNuevoPrestamo),
+  prestamos:wrapRender(renderPrestamos),pagos:wrapRender(renderPagos),vencidas:wrapRender(renderVencidas),
+  gastos:wrapRender(renderGastos),nomina:wrapRender(renderNomina),informes:wrapRender(renderInformes),usuarios:wrapRender(renderUsuarios),config:wrapRender(renderConfig),
+  perfil:wrapRender(renderPerfil),
+  log:wrapRender(renderBitacora),
 };
 
 function showPage(id){
@@ -777,7 +784,7 @@ function showPage(id){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
-  setTimeout(aplicarResponsivo,80);
+  setTimeout(aplicarResponsivo,300);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
