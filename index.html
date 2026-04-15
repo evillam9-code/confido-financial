@@ -227,7 +227,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .r-wrap{flex-direction:column}
   .r-half{width:100%!important}
   .two-col{grid-template-columns:1fr!important;gap:14px}
-  .form-row.c2,.form-row.c3,.form-row.c4{grid-template-columns:1fr!important}
+  .form-row.c2,.form-row.c3,.form-row.c4,.fr2,.fr3,.fr4{grid-template-columns:1fr!important}
   .form-field{margin-bottom:18px}
   .form-field label{font-size:13px!important;margin-bottom:8px}
   .form-field input,.form-field select,.form-field textarea{padding:13px 14px!important;font-size:16px!important;min-height:50px!important}
@@ -661,6 +661,16 @@ const MODULOS=[
   {id:'log',label:'Bitácora',ico:'📒',group:'Sistema',adminOnly:true},
 ];
 
+function _fixMobile(){
+  if(window.innerWidth>800)return;
+  var st=document.getElementById('_fix');
+  if(!st){st=document.createElement('style');st.id='_fix';document.head.appendChild(st);}
+  st.textContent='.form-row,.form-row.c2,.form-row.c3,.form-row.c4,.fr2,.fr3,.fr4{grid-template-columns:1fr!important}.two-col{grid-template-columns:1fr!important}.form-field input,.form-field select,.form-field textarea{font-size:16px!important;min-height:48px!important;padding:12px!important}.modal,.modal-box{width:96vw!important;max-width:96vw!important}';
+}
+window.addEventListener('load',_fixMobile);
+window.addEventListener('resize',_fixMobile);
+document.addEventListener('DOMContentLoaded',_fixMobile);
+
 function buildNav(){
   const groups={};
   MODULOS.forEach(m=>{
@@ -693,6 +703,7 @@ function showPage(id){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+  setTimeout(_fixMobile,100);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
@@ -1068,7 +1079,7 @@ function renderClientes(){
     <div class="page-header"><h1 data-edit="titulo-clientes" data-edit-label="Título Clientes" onclick="edClick(this)" style="cursor:default">👤 Clientes</h1><p>${DB.clientes.length} clientes registrados</p></div>
     <div class="card" style="border-top:3px solid var(--blue)">
       <div class="card-title"><span class="ico">➕</span>Nuevo cliente</div>
-      <div class="form-row c3">
+      <div class="form-row c3 fr3">
         <div class="form-field" style="grid-column:span 2"><label class="required">Nombre completo</label><input type="text" id="cl-nombre" placeholder="Nombres y apellidos completos"></div>
         <div class="form-field"><label class="required">Documento</label>
           <div style="display:flex;gap:6px">
@@ -1080,18 +1091,18 @@ function renderClientes(){
           </div>
         </div>
       </div>
-      <div class="form-row c4">
+      <div class="form-row c4 fr4">
         <div class="form-field"><label>Sexo</label><select id="cl-sex"><option>Masculino</option><option>Femenino</option></select></div>
         <div class="form-field"><label>Provincia</label><select id="cl-prov">${PROVINCIAS.map(p=>`<option>${p}</option>`).join('')}</select></div>
         <div class="form-field"><label>Ocupación</label><select id="cl-ocu">${OCUPACIONES.map(o=>`<option>${o}</option>`).join('')}</select></div>
         <div class="form-field"><label class="required">Celular</label><input type="text" id="cl-tel" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
       </div>
-      <div class="form-row c3">
+      <div class="form-row c3 fr3">
         <div class="form-field"><label>Ingresos mensuales</label><input type="number" id="cl-ing" placeholder="0.00" step="0.01" min="0"></div>
         <div class="form-field"><label>Correo</label><input type="email" id="cl-cor" placeholder="correo@email.com"></div>
         <div class="form-field"><label>Teléfono 2</label><input type="text" id="cl-tel2" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
       </div>
-      <div class="form-row c2">
+      <div class="form-row c2 fr2">
         <div class="form-field"><label>Dirección</label><input type="text" id="cl-dir" placeholder="Dirección completa"></div>
         <div class="form-field"><label>Referencia / Concepto</label><input type="text" id="cl-ref" placeholder="Ej: Garantía vehículo, referido por..."></div>
       </div>
@@ -1156,11 +1167,11 @@ function clGuardar(){
 function clEditar(i){
   const c=DB.clientes[i];
   openModal('Editar cliente — '+c.nombres+' '+c.apellidos,`
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label class="required">Nombres</label><input type="text" id="ec-nom" value="${escHtml(c.nombres)}"></div>
       <div class="form-field"><label class="required">Apellidos</label><input type="text" id="ec-ape" value="${escHtml(c.apellidos)}"></div>
     </div>
-    <div class="form-row c3">
+    <div class="form-row c3 fr3">
       <div class="form-field"><label>Documento</label>
         <div style="display:flex;gap:6px">
           <select id="ec-tipo-doc" style="width:140px;flex-shrink:0">
@@ -1174,7 +1185,7 @@ function clEditar(i){
       <div class="form-field"><label>Ingresos mensuales</label><input type="number" id="ec-ing" value="${c.ingresos||0}" step="0.01"></div>
     </div>
     <div class="form-field"><label>Dirección</label><input type="text" id="ec-dir" value="${escHtml(c.dir||'')}"></div>
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label>Correo</label><input type="email" id="ec-cor" value="${escHtml(c.correo||'')}"></div>
       <div class="form-field"><label>Referencia</label><input type="text" id="ec-ref" value="${escHtml(c.referencia||'')}"></div>
     </div>`,
@@ -1265,7 +1276,7 @@ function renderNuevoPrestamo(){
             </select>
           </div>
           <div id="np-cliente-info"></div>
-          <div class="form-row c3">
+          <div class="form-row c3 fr3">
             <div class="form-field"><label class="required">Monto del préstamo</label><input type="number" id="np-monto" placeholder="0.00" step="0.01" min="0" oninput="npActualizar()"></div>
             <div class="form-field"><label class="required">Moneda</label>
               <select id="np-moneda" onchange="npActualizar()">
@@ -1275,7 +1286,7 @@ function renderNuevoPrestamo(){
             </div>
             <div class="form-field"><label class="required">Tasa mensual (%)</label><input type="number" id="np-tasa" placeholder="${DB.config.tasa_default||2}" step="0.1" oninput="npActualizar()" style="text-align:right"></div>
           </div>
-          <div class="form-row c3">
+          <div class="form-row c3 fr3">
             <div class="form-field"><label class="required">Número de cuotas</label><input type="number" id="np-cuotas" placeholder="12" oninput="npActualizar()"></div>
             <div class="form-field"><label class="required">Forma de pago</label>
               <select id="np-forma" onchange="npActualizar()">
@@ -1289,7 +1300,7 @@ function renderNuevoPrestamo(){
               </select>
             </div>
           </div>
-          <div class="form-row c2">
+          <div class="form-row c2 fr2">
             <div class="form-field"><label class="required">Fecha del préstamo</label><input type="date" id="np-fecha" value="${today()}" oninput="npActualizar()"></div>
             <div class="form-field"><label>Forma de entrega</label>
               <select id="np-entrega">
@@ -1297,7 +1308,7 @@ function renderNuevoPrestamo(){
               </select>
             </div>
           </div>
-          <div class="form-row c2">
+          <div class="form-row c2 fr2">
             <div class="form-field"><label>Cobrador asignado</label>
               <select id="np-cobrador">
                 <option value="">Sin cobrador</option>
@@ -1620,7 +1631,7 @@ function renderPagos(){
     <!-- BUSCAR CLIENTE / PRÉSTAMO -->
     <div class="card" style="border-top:3px solid var(--green)">
       <div class="card-title"><span class="ico">🔍</span>Buscar cliente o préstamo</div>
-      <div class="form-row c2">
+      <div class="form-row c2 fr2">
         <div class="form-field"><label>Buscar por cliente</label>
           <select id="pg-cliente" onchange="pgFiltrarPorCliente()">
             <option value="">— Todos los clientes —</option>
@@ -1651,7 +1662,7 @@ function renderPagos(){
         <div class="card-title"><span class="ico">💵</span>Registrar abono a capital</div>
         <div class="alert alert-info">💡 El abono reduce el capital pendiente y recalcula las cuotas restantes automáticamente.</div>
         <div id="pg-abono-info"></div>
-        <div class="form-row c3" style="margin-top:12px">
+        <div class="form-row c3 fr3" style="margin-top:12px">
           <div class="form-field"><label class="required">Monto del abono</label>
             <input type="number" id="ab-monto" placeholder="0.00" step="0.01" min="0">
           </div>
@@ -1662,7 +1673,7 @@ function renderPagos(){
             <select id="ab-metodo"><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Depósito</option><option>Tarjeta</option></select>
           </div>
         </div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Recibido por</label>
             <select id="ab-cobrador">
               ${DB.users.filter(u=>u.activo).map(u=>`<option value="${escHtml(u.nombre)}">${escHtml(u.nombre)}</option>`).join('')}
@@ -1873,7 +1884,7 @@ function pgRegistrarPago(idPrestamo,numCuota){
       ${situacionHtml}
       ${abonoAnterior>0?'<div style="margin-top:6px;font-size:12px;color:var(--green)">✔ Ya abonado: '+fmtP(abonoAnterior)+'</div>':''}
     </div>
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label class="required">Monto a pagar (${monedaP})</label>
         <input type="number" id="pago-monto" value="${montoPorDefecto}" step="0.01" min="0">
       </div>
@@ -1881,7 +1892,7 @@ function pgRegistrarPago(idPrestamo,numCuota){
         <input type="number" id="pago-multa" value="${dias>0?multaEst:0}" step="0.01" min="0">
       </div>
     </div>
-    <div class="form-row c3">
+    <div class="form-row c3 fr3">
       <div class="form-field"><label>Fecha de pago</label><input type="date" id="pago-fecha" value="${today()}"></div>
       <div class="form-field"><label>Método</label>
         <select id="pago-metodo"><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Tarjeta</option><option>Depósito</option></select>
@@ -2362,7 +2373,7 @@ function renderAbonos(){
     <div class="two-col" style="align-items:start">
       <div class="card" style="border-top:3px solid var(--blue)">
         <div class="card-title"><span class="ico">💵</span>Registrar abono a capital</div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Buscar cliente</label>
             <select id="ab-cliente" onchange="abFiltrarPrestamos()">
               <option value="">— Seleccionar cliente —</option>
@@ -2376,7 +2387,7 @@ function renderAbonos(){
           </div>
         </div>
         <div id="ab-info"></div>
-        <div class="form-row c2" style="margin-top:12px">
+        <div class="form-row c2 fr2" style="margin-top:12px">
           <div class="form-field"><label class="required">Monto del abono</label>
             <input type="number" id="ab-monto" placeholder="0.00" step="0.01" min="0">
           </div>
@@ -2384,7 +2395,7 @@ function renderAbonos(){
             <input type="date" id="ab-fecha" value="${today()}">
           </div>
         </div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Método</label>
             <select id="ab-metodo"><option>Efectivo</option><option>Transferencia</option><option>Cheque</option><option>Depósito</option></select>
           </div>
@@ -2971,7 +2982,7 @@ function renderEditor(){
       <div>
         <div class="card" style="border-top:3px solid var(--purple)">
           <div class="card-title"><span class="ico">🎨</span>Colores del sistema</div>
-          <div class="form-row c2">
+          <div class="form-row c2 fr2">
             <div class="form-field"><label>Color primario (azul)</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-blue" value="${cfg.edBlue||'#2563eb'}" oninput="edPreview()"><span id="ed-blue-val" style="font-size:12px;font-family:monospace">${cfg.edBlue||'#2563eb'}</span></div></div>
             <div class="form-field"><label>Color navbar</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-navy" value="${cfg.edNavy||'#0f172a'}" oninput="edPreview()"><span id="ed-navy-val" style="font-size:12px;font-family:monospace">${cfg.edNavy||'#0f172a'}</span></div></div>
             <div class="form-field"><label>Color verde (pagado)</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-green" value="${cfg.edGreen||'#16a34a'}" oninput="edPreview()"><span id="ed-green-val" style="font-size:12px;font-family:monospace">${cfg.edGreen||'#16a34a'}</span></div></div>
@@ -3106,7 +3117,7 @@ function renderGastos(){
     <div class="page-header"><h1>💸 Gastos</h1><p>${DB.gastos.length} registros — Total: ${fmt(totalG)}</p></div>
     <div class="card" style="border-top:3px solid var(--red)">
       <div class="card-title"><span class="ico">➕</span>Registrar gasto</div>
-      <div class="form-row c4">
+      <div class="form-row c4 fr4">
         <div class="form-field"><label class="required">Fecha</label><input type="date" id="gs-fecha" value="${today()}"></div>
         <div class="form-field"><label class="required">Categoría</label>
           <select id="gs-cat">${CAT_GASTOS.map(c=>`<option>${c}</option>`).join('')}</select>
@@ -3162,7 +3173,7 @@ function renderNomina(){
     <div class="two-col" style="align-items:start">
       <div class="card" style="border-top:3px solid var(--green);margin-bottom:16px">
         <div class="card-title"><span class="ico">💳</span>Pago rápido</div>
-        <div class="form-row c3">
+        <div class="form-row c3 fr3">
           <div class="form-field"><label>Empleado</label>
             <select id="nm-emp-quick">
               <option value="">— Seleccionar empleado —</option>
@@ -3176,7 +3187,7 @@ function renderNomina(){
             <input type="number" id="nm-quick-monto" placeholder="0.00" step="0.01" min="0">
           </div>
         </div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Fecha</label><input type="date" id="nm-quick-fecha" value="${today()}"></div>
           <div class="form-field"><label>Notas</label><input type="text" id="nm-quick-notas" placeholder="Observaciones..."></div>
         </div>
@@ -3184,12 +3195,12 @@ function renderNomina(){
       </div>
       <div class="card" style="border-top:3px solid var(--blue)">
         <div class="card-title"><span class="ico">👤</span>Empleados</div>
-        <div class="form-row c3">
+        <div class="form-row c3 fr3">
           <div class="form-field"><label class="required">Nombre del empleado</label><input type="text" id="nm-nom" placeholder="Nombre completo"></div>
           <div class="form-field"><label class="required">Documento (Cédula)</label><input type="text" id="nm-doc" placeholder="001-0000000-0" maxlength="13" oninput="fmtCedula(this)"></div>
           <div class="form-field"><label>Cargo</label><input type="text" id="nm-cargo" placeholder="Ej: Cobrador, Asistente"></div>
         </div>
-        <div class="form-row c3">
+        <div class="form-row c3 fr3">
           <div class="form-field"><label>Salario base</label><input type="number" id="nm-salario" placeholder="0.00" step="0.01" min="0"></div>
           <div class="form-field"><label>Celular</label><input type="text" id="nm-tel" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
           <div class="form-field"><label class="required">Fecha de ingreso</label><input type="date" id="nm-ingreso" value="${today()}"></div>
@@ -3274,7 +3285,7 @@ function nmEditarEmp(id){
   const e=DB.nomina_emp.find(x=>x.id===id);
   if(!e) return;
   openModal('✏️ Editar empleado — '+e.nombre,`
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label class="required">Nombre completo</label>
         <input type="text" id="nme-nom" value="${escHtml(e.nombre)}">
       </div>
@@ -3282,7 +3293,7 @@ function nmEditarEmp(id){
         <input type="text" id="nme-doc" value="${escHtml(e.documento||'')}" placeholder="001-0000000-0" maxlength="13" oninput="fmtCedula(this)">
       </div>
     </div>
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label>Cargo</label>
         <input type="text" id="nme-cargo" value="${escHtml(e.cargo||'')}">
       </div>
@@ -3290,7 +3301,7 @@ function nmEditarEmp(id){
         <input type="number" id="nme-salario" value="${e.salario||0}" step="0.01" min="0">
       </div>
     </div>
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label>Celular</label>
         <input type="text" id="nme-tel" value="${escHtml(e.tel||'')}" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)">
       </div>
@@ -3344,7 +3355,7 @@ function nmEliminarEmp(id){
 function nmRegistrarPago(idEmp){
   const e=DB.nomina_emp.find(x=>x.id===idEmp);
   openModal('💳 Registrar pago — '+e.nombre,`
-    <div class="form-row c2">
+    <div class="form-row c2 fr2">
       <div class="form-field"><label>Fecha</label><input type="date" id="np-fecha" value="${today()}"></div>
       <div class="form-field"><label>Concepto</label>
         <select id="np-tipo">
@@ -3587,12 +3598,12 @@ function renderUsuarios(){
     <div class="page-header"><h1>👥 Usuarios</h1><p>Gestión de acceso al sistema</p></div>
     <div class="card" style="border-top:3px solid var(--blue)">
       <div class="card-title"><span class="ico">➕</span>Nuevo usuario</div>
-      <div class="form-row c3">
+      <div class="form-row c3 fr3">
         <div class="form-field"><label class="required">Nombre completo</label><input type="text" id="us-nom" placeholder="Nombre completo"></div>
         <div class="form-field"><label class="required">Usuario</label><input type="text" id="us-user" placeholder="usuario"></div>
         <div class="form-field"><label class="required">Contraseña</label><input type="password" id="us-pass" placeholder="Contraseña"></div>
       </div>
-      <div class="form-row c2">
+      <div class="form-row c2 fr2">
         <div class="form-field"><label>Rol</label>
           <select id="us-rol">
             <option value="dueno">Dueño</option>
@@ -3656,7 +3667,7 @@ function usEditar(i){
     <div class="form-field" style="margin-top:10px"><label>Usuario</label><input type="text" id="ue-user" value="${escHtml(u.username)}"></div>
     <div style="border-top:1px solid var(--gray3);margin-top:14px;padding-top:14px">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Nueva contraseña (dejar vacío para no cambiar)</div>
-      <div class="form-row c2">
+      <div class="form-row c2 fr2">
         <div class="form-field"><label>Nueva contraseña</label><input type="password" id="ue-pass"></div>
         <div class="form-field"><label>Confirmar</label><input type="password" id="ue-conf"></div>
       </div>
@@ -3741,7 +3752,7 @@ function renderConfig(){
       <div class="card" style="border-top:3px solid var(--blue)">
         <div class="card-title"><span class="ico">🏢</span>Datos de la empresa</div>
         <div class="form-field"><label class="required">Nombre de la empresa</label><input type="text" id="cf-empresa" value="${escHtml(c.empresa||'')}"></div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>RNC</label><input type="text" id="cf-rnc" value="${escHtml(c.rnc||'')}"></div>
           <div class="form-field"><label>Teléfono</label><input type="text" id="cf-tel" value="${escHtml(c.telefono||'')}"></div>
         </div>
@@ -3762,7 +3773,7 @@ function renderConfig(){
       </div>
       <div class="card" style="border-top:3px solid var(--amber)">
         <div class="card-title"><span class="ico">💰</span>Parámetros financieros</div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Tasa default (%)</label><input type="number" id="cf-tasa" value="${c.tasa_default||2}" step="0.1"></div>
           <div class="form-field"><label>Moneda</label>
             <select id="cf-moneda">
@@ -3771,7 +3782,7 @@ function renderConfig(){
             </select>
           </div>
         </div>
-        <div class="form-row c2">
+        <div class="form-row c2 fr2">
           <div class="form-field"><label>Días de gracia</label><input type="number" id="cf-gracia" value="${c.dias_gracia||0}" min="0"></div>
           <div class="form-field"><label>Multa por mora (%)</label><input type="number" id="cf-multa" value="${c.multa_pct||5}" step="0.1"></div>
         </div>
@@ -3781,7 +3792,7 @@ function renderConfig(){
       <div class="card" style="border-top:3px solid var(--purple)">
         <div class="card-title"><span class="ico">🎨</span>Editor Visual — Apariencia del sistema</div>
         <p style="font-size:13px;color:var(--gray);margin-bottom:14px">Personaliza colores, fuentes y tamaño de letra. Solo visible para administradores.</p>
-        <div class="form-row c3">
+        <div class="form-row c3 fr3">
           <div class="form-field"><label>Color primario</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-blue" value="${DB.config.edBlue||'#2563eb'}" oninput="edPreview()"><span style="font-size:11px;font-family:monospace" id="ed-blue-val">${DB.config.edBlue||'#2563eb'}</span></div></div>
           <div class="form-field"><label>Color navbar</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-navy" value="${DB.config.edNavy||'#0f172a'}" oninput="edPreview()"><span style="font-size:11px;font-family:monospace" id="ed-navy-val">${DB.config.edNavy||'#0f172a'}</span></div></div>
           <div class="form-field"><label>Color verde</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-green" value="${DB.config.edGreen||'#16a34a'}" oninput="edPreview()"><span style="font-size:11px;font-family:monospace" id="ed-green-val">${DB.config.edGreen||'#16a34a'}</span></div></div>
@@ -3789,7 +3800,7 @@ function renderConfig(){
           <div class="form-field"><label>Color ámbar</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-amber" value="${DB.config.edAmber||'#d97706'}" oninput="edPreview()"><span style="font-size:11px;font-family:monospace" id="ed-amber-val">${DB.config.edAmber||'#d97706'}</span></div></div>
           <div class="form-field"><label>Fondo general</label><div style="display:flex;gap:8px;align-items:center"><input type="color" id="ed-bg" value="${DB.config.edBg||'#f1f5f9'}" oninput="edPreview()"><span style="font-size:11px;font-family:monospace" id="ed-bg-val">${DB.config.edBg||'#f1f5f9'}</span></div></div>
         </div>
-        <div class="form-row c2" style="margin-top:8px">
+        <div class="form-row c2 fr2" style="margin-top:8px">
           <div class="form-field"><label>Fuente principal</label>
             <select id="ed-font" onchange="edPreview()" style="width:100%">
               <option value="Outfit" ${(DB.config.edFont||'Outfit')==='Outfit'?'selected':''}>Outfit (por defecto)</option>
