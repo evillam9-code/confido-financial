@@ -243,9 +243,9 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .form-field input,.form-field select,.form-field textarea{padding:14px 16px!important;font-size:16px!important;border-radius:10px!important;border-width:2px!important;min-height:50px}
   .form-field textarea{min-height:100px}
   /* Modal mas ancho */
-  .modal-box{width:96vw!important;max-width:96vw!important;padding:20px 14px!important;max-height:92vh!important}
+  .modal-box,.modal{width:96vw!important;max-width:96vw!important;padding:16px 12px!important;max-height:92vh!important}
   /* Botones del modal a todo el ancho */
-  .modal-box .btn{width:100%;padding:14px!important;font-size:15px!important;margin-top:6px;border-radius:10px!important}
+  .modal-box .btn,.modal .btn{width:100%!important;padding:14px!important;font-size:15px!important;margin-top:6px!important;border-radius:10px!important}
 }
 @media(max-width:900px) and (orientation:landscape){
   body .form-row.c2{grid-template-columns:1fr 1fr!important}
@@ -267,6 +267,14 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   html body .form-field input,
   html body .form-field select,
   html body .form-field textarea{font-size:16px!important;min-height:50px!important;padding:14px!important}
+  html body .modal,html body .modal-overlay .modal{width:96vw!important;max-width:96vw!important;padding:16px 12px!important}
+  html body .modal .form-row,
+  html body .modal .form-row.c2,
+  html body .modal .form-row.c3,
+  html body .modal .form-row.c4{grid-template-columns:1fr!important;display:grid!important}
+  html body .modal .form-field input,
+  html body .modal .form-field select,
+  html body .modal .form-field textarea{font-size:16px!important;min-height:50px!important;padding:14px!important}
 }
 /* FACTURA PRINT */
 @media print{
@@ -744,6 +752,24 @@ const MODULOS=[
   {id:'log',label:'Bitácora',ico:'📒',group:'Sistema',adminOnly:true},
 ];
 
+function aplicarResponsivoPagina(){
+  if(window.innerWidth>768)return;
+  // Aplicar a todos los form-row en la página
+  document.querySelectorAll('.form-row').forEach(row=>{
+    row.style.gridTemplateColumns='1fr';
+    row.style.display='grid';
+  });
+  document.querySelectorAll('.two-col').forEach(col=>{
+    col.style.gridTemplateColumns='1fr';
+    col.style.display='grid';
+  });
+  document.querySelectorAll('.form-field input,.form-field select,.form-field textarea').forEach(el=>{
+    el.style.fontSize='16px';
+    el.style.minHeight='50px';
+    el.style.padding='14px';
+  });
+}
+
 function buildNav(){
   const groups={};
   MODULOS.forEach(m=>{
@@ -777,6 +803,8 @@ function showPage(id){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
+  // Aplicar responsive después de que el contenido se renderice
+  setTimeout(aplicarResponsivoPagina, 100);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
@@ -794,6 +822,30 @@ function openModal(title,body,footer=''){
   document.getElementById('modal-body').innerHTML=body;
   document.getElementById('modal-footer').innerHTML=footer||`<button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>`;
   document.getElementById('modal-overlay').classList.add('open');
+  // Aplicar responsive móvil directamente via JS
+  if(window.innerWidth<=768){
+    const modal=document.getElementById('modal');
+    if(modal){
+      modal.style.width='96vw';
+      modal.style.maxWidth='96vw';
+      modal.style.padding='16px 12px';
+      modal.style.maxHeight='92vh';
+      modal.style.overflowY='auto';
+    }
+    document.querySelectorAll('#modal-body .form-row').forEach(row=>{
+      row.style.gridTemplateColumns='1fr';
+      row.style.display='grid';
+    });
+    document.querySelectorAll('#modal-body .form-field input, #modal-body .form-field select, #modal-body .form-field textarea').forEach(el=>{
+      el.style.fontSize='16px';
+      el.style.minHeight='50px';
+      el.style.padding='14px';
+    });
+    document.querySelectorAll('#modal-body .two-col').forEach(row=>{
+      row.style.gridTemplateColumns='1fr';
+      row.style.display='grid';
+    });
+  }
 }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
 function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
