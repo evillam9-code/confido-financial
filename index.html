@@ -3,9 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>Sistema de Préstamos</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -234,47 +231,29 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .r-wrap{flex-direction:column}
   .r-half{width:100%!important}
   /* Layout two-col a 1 columna en movil vertical */
-  body div.two-col{grid-template-columns:1fr!important;gap:14px;display:grid!important;max-width:100%!important}
+  .two-col{grid-template-columns:1fr!important;gap:14px}
   /* Formularios: todas las columnas a 1 en vertical */
-  body div.form-row.c2,body div.form-row.c3,body div.form-row.c4{grid-template-columns:1fr!important;display:grid!important;max-width:100%!important}
+  .form-row.c2,.form-row.c3,.form-row.c4{grid-template-columns:1fr!important}
   /* Campos mas grandes y faciles de tocar */
   .form-field{margin-bottom:20px}
   .form-field label{font-size:13px!important;margin-bottom:8px;letter-spacing:0}
   .form-field input,.form-field select,.form-field textarea{padding:14px 16px!important;font-size:16px!important;border-radius:10px!important;border-width:2px!important;min-height:50px}
   .form-field textarea{min-height:100px}
   /* Modal mas ancho */
-  .modal-box,.modal{width:96vw!important;max-width:96vw!important;padding:16px 12px!important;max-height:92vh!important}
+  .modal-box{width:96vw!important;max-width:96vw!important;padding:20px 14px!important;max-height:92vh!important}
   /* Botones del modal a todo el ancho */
-  .modal-box .btn,.modal .btn{width:100%!important;padding:14px!important;font-size:15px!important;margin-top:6px!important;border-radius:10px!important}
+  .modal-box .btn{width:100%;padding:14px!important;font-size:15px!important;margin-top:6px;border-radius:10px!important}
 }
 @media(max-width:900px) and (orientation:landscape){
-  body .form-row.c2{grid-template-columns:1fr 1fr!important}
-  body .form-row.c3{grid-template-columns:1fr 1fr 1fr!important}
-  body .form-row.c4{grid-template-columns:1fr 1fr!important}
-  body .two-col{grid-template-columns:1fr 1fr!important}
+  .form-row.c2{grid-template-columns:1fr 1fr!important}
+  .form-row.c3{grid-template-columns:1fr 1fr 1fr!important}
+  .form-row.c4{grid-template-columns:1fr 1fr!important}
+  .two-col{grid-template-columns:1fr 1fr!important}
   .modal-box{max-height:95vh!important;overflow-y:auto!important}
 }
 @media(max-width:400px){
   .stats-grid{grid-template-columns:1fr 1fr}
   .login-card{padding:24px 14px}
-}
-/* FORZAR 1 COLUMNA EN MOVIL - alta prioridad */
-@media screen and (max-width:768px){
-  html body div.form-row.c2,
-  html body div.form-row.c3,
-  html body div.form-row.c4{grid-template-columns:1fr!important}
-  html body div.two-col{grid-template-columns:1fr!important}
-  html body .form-field input,
-  html body .form-field select,
-  html body .form-field textarea{font-size:16px!important;min-height:50px!important;padding:14px!important}
-  html body .modal,html body .modal-overlay .modal{width:96vw!important;max-width:96vw!important;padding:16px 12px!important}
-  html body .modal .form-row,
-  html body .modal .form-row.c2,
-  html body .modal .form-row.c3,
-  html body .modal .form-row.c4{grid-template-columns:1fr!important;display:grid!important}
-  html body .modal .form-field input,
-  html body .modal .form-field select,
-  html body .modal .form-field textarea{font-size:16px!important;min-height:50px!important;padding:14px!important}
 }
 /* FACTURA PRINT */
 @media print{
@@ -306,18 +285,6 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 .btn-print-pdf{background:#16a34a;color:#fff}
 .btn-print-imp{background:#2563eb;color:#fff}
 </style>
-<script>
-(function(){
-  var VERSION = '2.0.5';
-  var saved = localStorage.getItem('app_version');
-  if(saved && saved !== VERSION){
-    localStorage.setItem('app_version', VERSION);
-    window.location.reload(true);
-  } else if(!saved){
-    localStorage.setItem('app_version', VERSION);
-  }
-})();
-</script>
 </head>
 <body>
 
@@ -752,22 +719,29 @@ const MODULOS=[
   {id:'log',label:'Bitácora',ico:'📒',group:'Sistema',adminOnly:true},
 ];
 
-function aplicarResponsivoPagina(){
+function aplicarResponsivo(){
   if(window.innerWidth>768)return;
-  // Aplicar a todos los form-row en la página
-  document.querySelectorAll('.form-row').forEach(row=>{
-    row.style.gridTemplateColumns='1fr';
-    row.style.display='grid';
+  document.querySelectorAll('.form-row').forEach(r=>{
+    r.style.setProperty('grid-template-columns','1fr','important');
+    r.style.setProperty('display','grid','important');
   });
-  document.querySelectorAll('.two-col').forEach(col=>{
-    col.style.gridTemplateColumns='1fr';
-    col.style.display='grid';
+  document.querySelectorAll('.two-col').forEach(r=>{
+    r.style.setProperty('grid-template-columns','1fr','important');
+    r.style.setProperty('display','grid','important');
   });
   document.querySelectorAll('.form-field input,.form-field select,.form-field textarea').forEach(el=>{
-    el.style.fontSize='16px';
-    el.style.minHeight='50px';
-    el.style.padding='14px';
+    el.style.setProperty('font-size','16px','important');
+    el.style.setProperty('min-height','50px','important');
+    el.style.setProperty('padding','13px 14px','important');
   });
+  const modal=document.getElementById('modal');
+  if(modal){
+    modal.style.setProperty('width','96vw','important');
+    modal.style.setProperty('max-width','96vw','important');
+    modal.style.setProperty('padding','16px 12px','important');
+    modal.style.setProperty('max-height','92vh','important');
+    modal.style.setProperty('overflow-y','auto','important');
+  }
 }
 
 function buildNav(){
@@ -803,8 +777,7 @@ function showPage(id){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
-  // Aplicar responsive después de que el contenido se renderice
-  setTimeout(aplicarResponsivoPagina, 100);
+  setTimeout(aplicarResponsivo,80);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
@@ -822,30 +795,7 @@ function openModal(title,body,footer=''){
   document.getElementById('modal-body').innerHTML=body;
   document.getElementById('modal-footer').innerHTML=footer||`<button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>`;
   document.getElementById('modal-overlay').classList.add('open');
-  // Aplicar responsive móvil directamente via JS
-  if(window.innerWidth<=768){
-    const modal=document.getElementById('modal');
-    if(modal){
-      modal.style.width='96vw';
-      modal.style.maxWidth='96vw';
-      modal.style.padding='16px 12px';
-      modal.style.maxHeight='92vh';
-      modal.style.overflowY='auto';
-    }
-    document.querySelectorAll('#modal-body .form-row').forEach(row=>{
-      row.style.gridTemplateColumns='1fr';
-      row.style.display='grid';
-    });
-    document.querySelectorAll('#modal-body .form-field input, #modal-body .form-field select, #modal-body .form-field textarea').forEach(el=>{
-      el.style.fontSize='16px';
-      el.style.minHeight='50px';
-      el.style.padding='14px';
-    });
-    document.querySelectorAll('#modal-body .two-col').forEach(row=>{
-      row.style.gridTemplateColumns='1fr';
-      row.style.display='grid';
-    });
-  }
+  setTimeout(aplicarResponsivo,50);
 }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
 function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
@@ -1334,7 +1284,6 @@ function clEditarGuardar(i){
 }
 
 function clEliminar(i){
-  if(!canWrite('No puedes eliminar clientes'))return;
   const c=DB.clientes[i];
   openModal('Eliminar cliente',`<p>¿Eliminar a <strong>${escHtml(c.nombres+' '+c.apellidos)}</strong>? Esta acción no se puede deshacer.</p>`,
     `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
@@ -1662,7 +1611,7 @@ function renderPrestamos(){
               <button class="btn btn-secondary btn-sm" onclick="verPrestamo('${p.id}')">👁</button>
               <button class="btn btn-primary btn-sm" onclick="imprimirFactura('${p.id}')">🖨️</button>
               ${p.estado==='ACTIVO'?`<button class="btn btn-green btn-sm" onclick="showPage('pagos');setTimeout(()=>pgSelPrestamo('${p.id}'),200)">💳 Pagar</button>`:''}
-              ${!isSoloLectura()?`<button class="btn btn-red btn-sm" onclick="prEliminar('${p.id}')">🗑</button>`:''}
+              ${isDueno()&&!isSoloLectura()?`<button class="btn btn-red btn-sm" onclick="prEliminar('${p.id}')">🗑</button>`:''}
             </div></td>
           </tr>`;}).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--gray);padding:24px">Sin préstamos registrados</td></tr>`}
         </tbody>
@@ -1702,7 +1651,7 @@ function verPrestamo(id){
     `<button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>
      <button class="btn btn-primary" onclick="closeModal();imprimirFactura('${id}')">🖨️ Factura</button>
      <button class="btn btn-amber" onclick="closeModal();imprimirPagare('${id}')">📄 Pagaré</button>
-     ${p.estado==='ACTIVO'&&!isSoloLectura()?`<button class="btn btn-red" onclick="cancelarPrestamo('${id}')">❌ Cancelar</button>`:''}` );
+     ${p.estado==='ACTIVO'&&isDueno()&&!isSoloLectura()?`<button class="btn btn-red" onclick="cancelarPrestamo('${id}')">❌ Cancelar</button>`:''}` );
 }
 
 function prEliminar(id){
@@ -3283,7 +3232,6 @@ function gsGuardar(){
   sDB('gastos');toast('Gasto registrado ✓','success');renderGastos();
 }
 function gsEliminar(id){
-  if(!canWrite('No puedes eliminar gastos'))return;
   DB.gastos=DB.gastos.filter(g=>g.id!==id);
   sDB('gastos');toast('Gasto eliminado');renderGastos();
 }
@@ -3457,7 +3405,6 @@ function nmGuardarEdicion(id){
   renderNomina();
 }
 function nmDarBaja(id){
-  if(!canWrite('No puedes dar de baja empleados'))return;
   const e=DB.nomina_emp.find(x=>x.id===id);
   openModal('🚪 Dar de baja — '+e.nombre,`
     <div class="form-field"><label>Fecha de salida</label><input type="date" id="baja-fecha" value="${today()}"></div>
@@ -3477,7 +3424,6 @@ function nmConfirmarBaja(id){
   sDB('nomina_emp');closeModal();toast('Empleado dado de baja','success');renderNomina();
 }
 function nmEliminarEmp(id){
-  if(!canWrite('No puedes eliminar empleados'))return;
   DB.nomina_emp=DB.nomina_emp.filter(e=>e.id!==id);
   sDB('nomina_emp');renderNomina();
 }
@@ -4238,7 +4184,6 @@ window.fbIniciar = async function(){
           DB.users.push(currentUser);
           sDB('users');
         }
-        // Reconstruir menú con los permisos actualizados de Firebase
         if(typeof buildNav==='function') buildNav();
       }
       setStatus('#22c55e','✓ Firebase');
