@@ -230,19 +230,14 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
   .page-header h1{font-size:18px}
   .r-wrap{flex-direction:column}
   .r-half{width:100%!important}
-  /* Layout two-col a 1 columna en movil vertical */
   .two-col{grid-template-columns:1fr!important;gap:14px}
-  /* Formularios: todas las columnas a 1 en vertical */
   .form-row.c2,.form-row.c3,.form-row.c4{grid-template-columns:1fr!important}
-  /* Campos mas grandes y faciles de tocar */
   .form-field{margin-bottom:20px}
   .form-field label{font-size:13px!important;margin-bottom:8px;letter-spacing:0}
   .form-field input,.form-field select,.form-field textarea{padding:14px 16px!important;font-size:16px!important;border-radius:10px!important;border-width:2px!important;min-height:50px}
   .form-field textarea{min-height:100px}
-  /* Modal mas ancho */
-  .modal-box{width:96vw!important;max-width:96vw!important;padding:20px 14px!important;max-height:92vh!important}
-  /* Botones del modal a todo el ancho */
-  .modal-box .btn{width:100%;padding:14px!important;font-size:15px!important;margin-top:6px;border-radius:10px!important}
+  .modal{width:96vw!important;max-width:96vw!important;padding:20px 14px!important;max-height:92vh!important;border-radius:14px!important}
+  .modal .btn{width:100%;padding:14px!important;font-size:15px!important;margin-top:6px;border-radius:10px!important}
 }
 @media(max-width:900px) and (orientation:landscape){
   .form-row.c2{grid-template-columns:1fr 1fr!important}
@@ -719,31 +714,6 @@ const MODULOS=[
   {id:'log',label:'Bitácora',ico:'📒',group:'Sistema',adminOnly:true},
 ];
 
-function aplicarResponsivo(){
-  if(window.innerWidth>768)return;
-  document.querySelectorAll('.form-row').forEach(r=>{
-    r.style.setProperty('grid-template-columns','1fr','important');
-    r.style.setProperty('display','grid','important');
-  });
-  document.querySelectorAll('.two-col').forEach(r=>{
-    r.style.setProperty('grid-template-columns','1fr','important');
-    r.style.setProperty('display','grid','important');
-  });
-  document.querySelectorAll('.form-field input,.form-field select,.form-field textarea').forEach(el=>{
-    el.style.setProperty('font-size','16px','important');
-    el.style.setProperty('min-height','50px','important');
-    el.style.setProperty('padding','13px 14px','important');
-  });
-  const modal=document.getElementById('modal');
-  if(modal){
-    modal.style.setProperty('width','96vw','important');
-    modal.style.setProperty('max-width','96vw','important');
-    modal.style.setProperty('padding','16px 12px','important');
-    modal.style.setProperty('max-height','92vh','important');
-    modal.style.setProperty('overflow-y','auto','important');
-  }
-}
-
 function buildNav(){
   const groups={};
   MODULOS.forEach(m=>{
@@ -761,19 +731,12 @@ function buildNav(){
   document.getElementById('sidebar').innerHTML=html;
 }
 
-// Wrap renders para aplicar responsive automaticamente
-function wrapRender(fn){
-  return function(){
-    fn();
-    setTimeout(aplicarResponsivo,50);
-  };
-}
 const ROUTERS={
-  dashboard:wrapRender(renderDashboard),clientes:wrapRender(renderClientes),'nuevo-prestamo':wrapRender(renderNuevoPrestamo),
-  prestamos:wrapRender(renderPrestamos),pagos:wrapRender(renderPagos),vencidas:wrapRender(renderVencidas),
-  gastos:wrapRender(renderGastos),nomina:wrapRender(renderNomina),informes:wrapRender(renderInformes),usuarios:wrapRender(renderUsuarios),config:wrapRender(renderConfig),
-  perfil:wrapRender(renderPerfil),
-  log:wrapRender(renderBitacora),
+  dashboard:renderDashboard,clientes:renderClientes,'nuevo-prestamo':renderNuevoPrestamo,
+  prestamos:renderPrestamos,pagos:renderPagos,vencidas:renderVencidas,
+  gastos:renderGastos,nomina:renderNomina,informes:renderInformes,usuarios:renderUsuarios,config:renderConfig,
+  perfil:renderPerfil,
+  log:renderBitacora,
 };
 
 function showPage(id){
@@ -784,7 +747,6 @@ function showPage(id){
   const sb=document.getElementById('sidebar');
   const ov=document.getElementById('sidebar-overlay');
   if(sb&&window.innerWidth<=768){sb.classList.remove('open');if(ov)ov.classList.remove('open');}
-  setTimeout(aplicarResponsivo,300);
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
@@ -802,7 +764,6 @@ function openModal(title,body,footer=''){
   document.getElementById('modal-body').innerHTML=body;
   document.getElementById('modal-footer').innerHTML=footer||`<button class="btn btn-secondary" onclick="closeModal()">Cerrar</button>`;
   document.getElementById('modal-overlay').classList.add('open');
-  setTimeout(aplicarResponsivo,50);
 }
 function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
 function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
