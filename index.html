@@ -668,7 +668,10 @@ function _fixMobile(){
   if(window.innerWidth>800)return;
   var st=document.getElementById('_fix');
   if(!st){st=document.createElement('style');st.id='_fix';document.head.appendChild(st);}
-  st.textContent='.form-row,.form-row.c2,.form-row.c3,.form-row.c4,.fr2,.fr3,.fr4{grid-template-columns:1fr!important}.two-col{grid-template-columns:1fr!important}.form-field input,.form-field select,.form-field textarea{font-size:16px!important;min-height:48px!important;padding:12px!important}.modal,.modal-box{width:96vw!important;max-width:96vw!important}';
+  st.textContent='.form-row,.form-row.c2,.form-row.c3,.form-row.c4,.fr2,.fr3,.fr4{grid-template-columns:1fr!important}.two-col,.three-col{grid-template-columns:1fr!important}.form-field input,.form-field select,.form-field textarea{font-size:16px!important;min-height:48px!important;padding:12px!important}.modal,.modal-box{width:96vw!important;max-width:96vw!important}';
+  document.querySelectorAll('[style*="grid-template-columns"]').forEach(function(el){
+    el.style.gridTemplateColumns='1fr';
+  });
 }
 window.addEventListener('load',_fixMobile);
 window.addEventListener('resize',_fixMobile);
@@ -711,7 +714,7 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const pg=document.getElementById('page-'+id);
-  if(pg){pg.classList.add('active');if(ROUTERS[id])ROUTERS[id]();setTimeout(()=>{applyEdInline();if(document.body.classList.contains('modo-editor'))makeThsEditable();},80);}
+  if(pg){pg.classList.add('active');if(ROUTERS[id])ROUTERS[id]();setTimeout(()=>{applyEdInline();if(document.body.classList.contains('modo-editor'))makeThsEditable();_fixMobile();},80);}
   const nav=document.getElementById('nav-'+id);
   if(nav)nav.classList.add('active');
   closeModal();
@@ -4085,6 +4088,11 @@ window.fbIniciar = async function(){
     if(loaded){
       applyConfig();
       if(typeof applyEstilos==='function') applyEstilos();
+      // Sync currentUser role from Firebase before building nav
+      if(typeof currentUser!=='undefined'&&currentUser&&DB.users){
+        const fbUser=DB.users.find(function(u){return u.id===currentUser.id||u.username===currentUser.username;});
+        if(fbUser){currentUser=fbUser;}
+      }
       if(typeof buildNav==='function') buildNav();
       setStatus('#22c55e','✓ Firebase');
       console.log('✅ Firebase: datos cargados');
