@@ -4067,7 +4067,7 @@ function renderUsuarios(){
           <td style="max-width:150px">${(u.permisosBorrar||[]).map(p=>`<span class="badge badge-red" style="margin:2px;font-size:10px">${PERMISOS_BORRAR_DEF.find(x=>x.id===p)?.label.replace('Borrar ','')||p}</span>`).join('')||'<span style="color:var(--gray);font-size:11px">—</span>'}</td>
           <td><div style="display:flex;gap:4px">
             <button class="btn btn-secondary btn-sm" onclick="usEditar(${i})">✏️</button>
-            <button class="btn btn-amber btn-sm" onclick="usPermisos(${i})">🔑</button>
+            ${isAdmin()?`<button class="btn btn-amber btn-sm" onclick="usPermisos(${i})">🔑</button>`:""}
             ${isAdmin()&&u.id!=='u1'?`<button class="btn ${u.activo?'btn-red':'btn-green'} btn-sm" onclick="usToggle(${i})">${u.activo?'🚫':'✅'}</button>`:''}
             ${(isAdmin()||canDelete('usuarios'))&&u.id!=='u1'?`<button class="btn btn-red btn-sm" onclick="usEliminar(${i})">🗑</button>`:''}
           </div></td>
@@ -4078,6 +4078,7 @@ function renderUsuarios(){
 }
 
 function usGuardar(){
+  if(!isAdmin()){toast('Solo el Administrador puede crear usuarios','error');return;}
   const nom=document.getElementById('us-nom').value.trim();
   const user=document.getElementById('us-user').value.trim();
   const pass=document.getElementById('us-pass').value;
@@ -4109,6 +4110,7 @@ function usEditar(i){
 }
 
 function usEditarGuardar(i){
+  if(!isAdmin()&&currentUser.id!==DB.users[i].id){toast('Solo el Administrador puede editar otros usuarios','error');closeModal();return;}
   const nom=document.getElementById('ue-nom').value.trim();
   const user=document.getElementById('ue-user').value.trim();
   const pass=document.getElementById('ue-pass').value;
@@ -4156,6 +4158,7 @@ function usPermisos(i){
 }
 
 function usPermisosGuardar(i){
+  if(!isAdmin()){toast('Solo el Administrador puede modificar permisos','error');closeModal();return;}
   const permisos=['dashboard',...MODULOS.filter(m=>document.getElementById('ep-'+m.id)?.checked).map(m=>m.id)];
   const permisosEditar=PERMISOS_EDITAR_DEF.filter(p=>document.getElementById('ep-ed-'+p.id)?.checked).map(p=>p.id);
   const permisosBorrar=PERMISOS_BORRAR_DEF.filter(p=>document.getElementById('ep-del-'+p.id)?.checked).map(p=>p.id);
