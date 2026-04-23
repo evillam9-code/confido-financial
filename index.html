@@ -415,6 +415,7 @@ const ROLES_DEF = {
   admin:      {label:'Administrador', color:'badge-purple', soloLectura:false},
   dueno:      {label:'Dueño',         color:'badge-blue',   soloLectura:false},
   secretaria: {label:'Secretaria',    color:'badge-green',  soloLectura:false},
+  secretario: {label:'Secretario',    color:'badge-green',  soloLectura:false},
   cobrador:   {label:'Cobrador',      color:'badge-amber',  soloLectura:false},
   visitante:  {label:'Visitante',     color:'badge-gray',   soloLectura:true},
 };
@@ -1533,7 +1534,7 @@ function renderPrestamos(){
               <button class="btn btn-secondary btn-sm" onclick="verPrestamo('${p.id}')">👁</button>
               <button class="btn btn-primary btn-sm" onclick="imprimirFactura('${p.id}')">🖨️</button>
               ${p.estado==='ACTIVO'?`<button class="btn btn-green btn-sm" onclick="showPage('pagos');setTimeout(()=>pgSelPrestamo('${p.id}'),200)">💳 Pagar</button>`:''}
-              ${isDueno()&&!isSoloLectura()?`<button class="btn btn-red btn-sm" onclick="prEliminar('${p.id}')">🗑</button>`:''}
+              ${(isDueno()||canDelete('prestamos'))&&!isSoloLectura()?`<button class="btn btn-red btn-sm" onclick="prEliminar('${p.id}')">🗑</button>`:''}
             </div></td>
           </tr>`;}).join(''):`<tr><td colspan="10" style="text-align:center;color:var(--gray);padding:24px">Sin préstamos registrados</td></tr>`}
         </tbody>
@@ -4022,6 +4023,7 @@ function renderUsuarios(){
           <select id="us-rol">
             <option value="dueno">Dueño</option>
             <option value="secretaria">Secretaria</option>
+            <option value="secretario">Secretario</option>
             <option value="cobrador">Cobrador</option>
             <option value="visitante">Visitante (Solo lectura)</option>
             <option value="admin">Administrador (Acceso total)</option>
@@ -4098,6 +4100,16 @@ function usEditar(i){
   openModal('Editar usuario',`
     <div class="form-field"><label>Nombre completo</label><input type="text" id="ue-nom" value="${escHtml(u.nombre)}"></div>
     <div class="form-field" style="margin-top:10px"><label>Usuario</label><input type="text" id="ue-user" value="${escHtml(u.username)}"></div>
+    <div class="form-field" style="margin-top:10px"><label>Rol</label>
+      <select id="ue-rol" style="width:100%;padding:8px 12px;border:1.5px solid var(--gray3);border-radius:var(--radius-sm);font-size:14px">
+        <option value="dueno" ${u.role==='dueno'?'selected':''}>Dueño</option>
+        <option value="secretaria" ${u.role==='secretaria'?'selected':''}>Secretaria</option>
+        <option value="secretario" ${u.role==='secretario'?'selected':''}>Secretario</option>
+        <option value="cobrador" ${u.role==='cobrador'?'selected':''}>Cobrador</option>
+        <option value="visitante" ${u.role==='visitante'?'selected':''}>Visitante (Solo lectura)</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Administrador (Acceso total)</option>
+      </select>
+    </div>
     <div style="border-top:1px solid var(--gray3);margin-top:14px;padding-top:14px">
       <div style="font-size:11px;font-weight:600;text-transform:uppercase;color:var(--gray);margin-bottom:10px">Nueva contraseña (dejar vacío para no cambiar)</div>
       <div class="form-row c2 fr2">
@@ -4119,9 +4131,10 @@ function usEditarGuardar(i){
   if(pass&&pass!==conf){toast('Las contraseñas no coinciden','error');return;}
   const dup=DB.users.find((u,idx)=>u.username===user&&idx!==i);
   if(dup){toast('Ese usuario ya existe','error');return;}
-  DB.users[i].nombre=nom;DB.users[i].username=user;
+  const rol=document.getElementById('ue-rol').value;
+  DB.users[i].nombre=nom;DB.users[i].username=user;DB.users[i].role=rol;
   if(pass)DB.users[i].password=pass;
-  if(currentUser.id===DB.users[i].id){currentUser.nombre=nom;currentUser.username=user;if(pass)currentUser.password=pass;document.getElementById('top-username').textContent=nom;}
+  if(currentUser.id===DB.users[i].id){currentUser.nombre=nom;currentUser.username=user;currentUser.role=rol;if(pass)currentUser.password=pass;document.getElementById('top-username').textContent=nom;}
   sDB('users');closeModal();toast('Usuario actualizado ✓','success');renderUsuarios();
 }
 
