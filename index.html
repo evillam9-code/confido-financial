@@ -170,7 +170,7 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
 .modal-overlay.open{display:flex}
-.modal{background:var(--white);border-radius:14px;padding:28px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal{background:var(--white);border-radius:14px;padding:28px;width:100%;max-width:820px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
 .modal-title{font-size:17px;font-weight:700;margin-bottom:20px;color:var(--navy)}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--gray3)}
 /* TOAST */
@@ -1572,10 +1572,11 @@ function verPrestamo(id){
       <tbody>${p.cuotas.map(c=>{
         const est=calcEstadoCuota(c);
         const bc={PAGADO:'badge-green',VENCIDA:'badge-red',PENDIENTE:'badge-amber',PARCIAL:'badge-purple'};
-        const _btnAcc=(isAdmin()||canEdit('prestamos')||canDelete('prestamos'))?`<td style="white-space:nowrap;text-align:center">
-          ${(isAdmin()||canEdit('prestamos'))?'<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="editarPago(\'${id}\','+c.num+')" title="Editar pago">&#x270F;</button>':""}
-          ${est==='PAGADO'?`<button class="btn btn-red" style="padding:2px 6px;font-size:11px;margin-left:2px" onclick="limpiarPago('${id}',${c.num})" title="Revertir">&#x2717;</button>`:""}
-        </td>`:"";
+        const _canEd=isAdmin()||canEdit('prestamos');
+        const _canDel=isAdmin()||canDelete('prestamos');
+        const _btnEd=_canEd?`<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="editarPago('${id}',${c.num})" title="Editar pago">&#x270F;</button>`:'';
+        const _btnDel=(_canDel&&est==='PAGADO')?`<button class="btn btn-red" style="padding:2px 6px;font-size:11px;margin-left:2px" onclick="limpiarPago('${id}',${c.num})" title="Revertir">&#x2717;</button>`:'';
+        const _btnAcc=(_canEd||_canDel)?`<td style="white-space:nowrap;text-align:center">${_btnEd}${_btnDel}</td>`:'';
         return`<tr>
           <td style="text-align:center">${c.num}</td>
           <td>${fmtDate(c.fechaCuota)}</td>
