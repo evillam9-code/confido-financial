@@ -1572,8 +1572,8 @@ function verPrestamo(id){
       <tbody>${p.cuotas.map(c=>{
         const est=calcEstadoCuota(c);
         const bc={PAGADO:'badge-green',VENCIDA:'badge-red',PENDIENTE:'badge-amber',PARCIAL:'badge-purple'};
-        const _btnAcc=isAdmin()?`<td style="white-space:nowrap;text-align:center">
-          <button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="editarPago('${id}',${c.num})" title="Editar pago">&#x270F;</button>
+        const _btnAcc=(isAdmin()||canEdit('prestamos')||canDelete('prestamos'))?`<td style="white-space:nowrap;text-align:center">
+          ${(isAdmin()||canEdit('prestamos'))?'<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="editarPago(\'${id}\','+c.num+')" title="Editar pago">&#x270F;</button>':""}
           ${est==='PAGADO'?`<button class="btn btn-red" style="padding:2px 6px;font-size:11px;margin-left:2px" onclick="limpiarPago('${id}',${c.num})" title="Revertir">&#x2717;</button>`:""}
         </td>`:"";
         return`<tr>
@@ -1596,7 +1596,7 @@ function verPrestamo(id){
 
 // -- EDITAR PAGO (solo admin) --
 function editarPago(idPrestamo, numCuota){
-  if(!isAdmin()){toast('Solo el administrador puede editar pagos','error');return;}
+  if(!isAdmin()&&!canEdit('prestamos')){toast('No tiene permiso para editar pagos','error');return;}
   const p=DB.prestamos.find(x=>x.id===idPrestamo);
   if(!p)return;
   const c=p.cuotas.find(x=>x.num===numCuota);
@@ -1629,7 +1629,7 @@ function editarPago(idPrestamo, numCuota){
      <button class="btn btn-primary" onclick="editarPagoGuardar('${idPrestamo}',${numCuota})">Guardar cambios</button>`);
 }
 function editarPagoGuardar(idPrestamo, numCuota){
-  if(!isAdmin()){toast('Solo el administrador puede editar pagos','error');return;}
+  if(!isAdmin()&&!canEdit('prestamos')){toast('No tiene permiso para editar pagos','error');return;}
   const p=DB.prestamos.find(x=>x.id===idPrestamo);
   if(!p)return;
   const c=p.cuotas.find(x=>x.num===numCuota);
@@ -1652,7 +1652,7 @@ function editarPagoGuardar(idPrestamo, numCuota){
 }
 // -- LIMPIAR PAGO (solo admin) --
 function limpiarPago(idPrestamo, numCuota){
-  if(!isAdmin()){toast('Solo el administrador puede revertir pagos','error');return;}
+  if(!isAdmin()&&!canDelete('prestamos')){toast('No tiene permiso para revertir pagos','error');return;}
   openModal('Revertir pago - Cuota #'+numCuota,`
     <div class="alert alert-danger">Esta accion devuelve la cuota <strong>#${numCuota}</strong> a estado <strong>PENDIENTE</strong>, borrando abono, fecha de pago, mora y multa.</div>
     <p style="font-size:13px">Confirmar reversion?</p>`,
@@ -1660,7 +1660,7 @@ function limpiarPago(idPrestamo, numCuota){
      <button class="btn btn-red" onclick="limpiarPagoConfirm('${idPrestamo}',${numCuota})">Revertir</button>`);
 }
 function limpiarPagoConfirm(idPrestamo, numCuota){
-  if(!isAdmin()){toast('Solo el administrador puede revertir pagos','error');return;}
+  if(!isAdmin()&&!canDelete('prestamos')){toast('No tiene permiso para revertir pagos','error');return;}
   const p=DB.prestamos.find(x=>x.id===idPrestamo);
   if(!p)return;
   const c=p.cuotas.find(x=>x.num===numCuota);
