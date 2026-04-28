@@ -811,13 +811,25 @@ function calcAmortizacion(capital, tasaMensual, numCuotas, fechaInicio, formaPag
   const capitalPorCuota=parseFloat((cap/numCuotas).toFixed(2));
   let saldo=cap;
 
-  let fecha=new Date(fechaInicio+'T12:00:00');
+  const _fechaBase=new Date(fechaInicio+'T12:00:00');
+  const _diaOrig=_fechaBase.getDate();
+  function _sumarMes(base,n){
+    const d=new Date(base);
+    const tm=d.getMonth()+n;
+    const yr=d.getFullYear()+Math.floor(tm/12);
+    const mo=((tm%12)+12)%12;
+    const maxD=new Date(yr,mo+1,0).getDate();
+    d.setFullYear(yr,mo,Math.min(_diaOrig,maxD));
+    d.setHours(12,0,0,0);
+    return d;
+  }
+  let fecha=new Date(_fechaBase);
 
   for(let i=1;i<=numCuotas;i++){
-    if(formaPago==='Mensual') fecha.setMonth(fecha.getMonth()+1);
-    else if(formaPago==='Quincenal') fecha.setDate(fecha.getDate()+15);
-    else if(formaPago==='Semanal') fecha.setDate(fecha.getDate()+7);
-    else fecha.setMonth(fecha.getMonth()+1);
+    if(formaPago==='Mensual'||!formaPago){ fecha=_sumarMes(_fechaBase,i); }
+    else if(formaPago==='Quincenal'){ fecha=new Date(_fechaBase); fecha.setDate(fecha.getDate()+15*i); fecha.setHours(12,0,0,0); }
+    else if(formaPago==='Semanal'){ fecha=new Date(_fechaBase); fecha.setDate(fecha.getDate()+7*i); fecha.setHours(12,0,0,0); }
+    else { fecha=_sumarMes(_fechaBase,i); }
     skipDomingo(fecha);
 
     let capitalCuota, amortizacion, saldoFinal;
@@ -1556,10 +1568,14 @@ function verPrestamo(id){
     </div>
     <div style="max-height:360px;overflow-y:auto">
     <table class="amort-table">
-      <thead><tr><th>#</th><th>F.Cuota</th><th>Cuota</th><th>Abono</th><th>Multa</th><th>F.Pago</th><th>Estado</th></tr></thead>
+      <thead><tr><th>#</th><th>F.Cuota</th><th>Cuota</th><th>Abono</th><th>Multa</th><th>F.Pago</th><th>Estado</th>${isAdmin()?"<th></th>":""}</tr></thead>
       <tbody>${p.cuotas.map(c=>{
         const est=calcEstadoCuota(c);
         const bc={PAGADO:'badge-green',VENCIDA:'badge-red',PENDIENTE:'badge-amber',PARCIAL:'badge-purple'};
+        const _btnAcc=isAdmin()?`<td style="white-space:nowrap;text-align:center">
+          <button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="editarPago('${id}',${c.num})" title="Editar pago">&#x270F;</button>
+          ${est==='PAGADO'?`<button class="btn btn-red" style="padding:2px 6px;font-size:11px;margin-left:2px" onclick="limpiarPago('${id}',${c.num})" title="Revertir">&#x2717;</button>`:""}
+        </td>`:"";
         return`<tr>
           <td style="text-align:center">${c.num}</td>
           <td>${fmtDate(c.fechaCuota)}</td>
@@ -1568,6 +1584,7 @@ function verPrestamo(id){
           <td style="color:var(--red)">${c.multa?fmt(c.multa):'—'}</td>
           <td>${fmtDate(c.fechaPago)}</td>
           <td><span class="badge ${bc[est]}">${est}</span></td>
+          ${_btnAcc}
         </tr>`;}).join('')}
       </tbody>
     </table></div>`,
@@ -1576,6 +1593,86 @@ function verPrestamo(id){
      <button class="btn btn-amber" onclick="closeModal();imprimirPagare('${id}')">📄 Pagaré</button>
      ${p.estado==='ACTIVO'&&isDueno()&&!isSoloLectura()?`<button class="btn btn-red" onclick="cancelarPrestamo('${id}')">❌ Cancelar</button>`:''}` );
 }
+
+// -- EDITAR PAGO (solo admin) --
+function editarPago(idPrestamo, numCuota){
+  if(!isAdmin()){toast('Solo el administrador puede editar pagos','error');return;}
+  const p=DB.prestamos.find(x=>x.id===idPrestamo);
+  if(!p)return;
+  const c=p.cuotas.find(x=>x.num===numCuota);
+  if(!c)return;
+  const est=calcEstadoCuota(c);
+  openModal('Editar pago - Cuota #'+numCuota,`
+    <div style="display:grid;gap:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label class="form-label">Monto abonado</label>
+          <input id="ep-abono" type="number" class="form-input" value="${c.abono||0}" min="0" step="0.01"></div>
+        <div><label class="form-label">Fecha de pago</label>
+          <input id="ep-fecha" type="date" class="form-input" value="${c.fechaPago||''}"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label class="form-label">Mora (RD$)</label>
+          <input id="ep-mora" type="number" class="form-input" value="${c.mora||0}" min="0" step="0.01"></div>
+        <div><label class="form-label">Multa (RD$)</label>
+          <input id="ep-multa" type="number" class="form-input" value="${c.multa||0}" min="0" step="0.01"></div>
+      </div>
+      <div><label class="form-label">Estado</label>
+        <select id="ep-estado" class="form-input">
+          <option value="PENDIENTE" ${est==='PENDIENTE'?'selected':''}>PENDIENTE</option>
+          <option value="PAGADO" ${est==='PAGADO'?'selected':''}>PAGADO</option>
+          <option value="VENCIDA" ${est==='VENCIDA'?'selected':''}>VENCIDA</option>
+        </select>
+      </div>
+      <div style="font-size:12px;color:var(--gray)">Cambios quedan registrados en bitacora.</div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-primary" onclick="editarPagoGuardar('${idPrestamo}',${numCuota})">Guardar cambios</button>`);
+}
+function editarPagoGuardar(idPrestamo, numCuota){
+  if(!isAdmin()){toast('Solo el administrador puede editar pagos','error');return;}
+  const p=DB.prestamos.find(x=>x.id===idPrestamo);
+  if(!p)return;
+  const c=p.cuotas.find(x=>x.num===numCuota);
+  if(!c)return;
+  const abono=parseFloat(document.getElementById('ep-abono').value)||0;
+  const fecha=document.getElementById('ep-fecha').value||null;
+  const mora=parseFloat(document.getElementById('ep-mora').value)||0;
+  const multa=parseFloat(document.getElementById('ep-multa').value)||0;
+  const estadoSel=document.getElementById('ep-estado').value;
+  if(estadoSel==='PENDIENTE'){
+    c.abono=0;c.fechaPago=null;c.mora=0;c.multa=0;c._estadoForzado=null;
+  } else {
+    c.abono=abono;c.fechaPago=fecha;c.mora=mora;c.multa=multa;
+    c._estadoForzado=(estadoSel==='VENCIDA')?'VENCIDA':null;
+  }
+  sDB('prestamos');
+  addLog('PAGO','Pago editado - Prestamo:'+idPrestamo+' Cuota:#'+numCuota);
+  closeModal();toast('Pago actualizado','success');
+  prDetalle(idPrestamo);
+}
+// -- LIMPIAR PAGO (solo admin) --
+function limpiarPago(idPrestamo, numCuota){
+  if(!isAdmin()){toast('Solo el administrador puede revertir pagos','error');return;}
+  openModal('Revertir pago - Cuota #'+numCuota,`
+    <div class="alert alert-danger">Esta accion devuelve la cuota <strong>#${numCuota}</strong> a estado <strong>PENDIENTE</strong>, borrando abono, fecha de pago, mora y multa.</div>
+    <p style="font-size:13px">Confirmar reversion?</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-red" onclick="limpiarPagoConfirm('${idPrestamo}',${numCuota})">Revertir</button>`);
+}
+function limpiarPagoConfirm(idPrestamo, numCuota){
+  if(!isAdmin()){toast('Solo el administrador puede revertir pagos','error');return;}
+  const p=DB.prestamos.find(x=>x.id===idPrestamo);
+  if(!p)return;
+  const c=p.cuotas.find(x=>x.num===numCuota);
+  if(!c)return;
+  c.abono=0;c.fechaPago=null;c.mora=0;c.multa=0;c._estadoForzado=null;
+  DB.pagos=DB.pagos.filter(x=>!(x.idPrestamo===idPrestamo&&x.numCuota===numCuota));
+  sDB('prestamos');sDB('pagos');
+  addLog('PAGO','Pago revertido - Prestamo:'+idPrestamo+' Cuota:#'+numCuota);
+  closeModal();toast('Cuota revertida a PENDIENTE','success');
+  prDetalle(idPrestamo);
+}
+
 
 function prEliminar(id){
   const p=DB.prestamos.find(x=>x.id===id);
