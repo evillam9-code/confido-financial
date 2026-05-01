@@ -540,6 +540,11 @@ function doLogin(){
   if(loginBloqueado){document.getElementById('login-blocked').style.display='block';return;}
   const u=document.getElementById('li-user').value.trim();
   const p=document.getElementById('li-pass').value;
+  // iOS bloquea localStorage — recargar usuarios desde Firebase si no están
+  if(!DB.users||DB.users.length<=1){
+    fbCargar().then(()=>{ doLogin(); });
+    return;
+  }
   const user=DB.users.find(x=>x.username===u&&x.password===p&&x.activo);
   if(!user){
     loginIntentos++;
