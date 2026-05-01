@@ -536,15 +536,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   applyEstilos();
 });
 
-function doLogin(){
+async function doLogin(){
   if(loginBloqueado){document.getElementById('login-blocked').style.display='block';return;}
   const u=document.getElementById('li-user').value.trim();
   const p=document.getElementById('li-pass').value;
-  // iOS bloquea localStorage — recargar usuarios desde Firebase si no están
-  if(!DB.users||DB.users.length<=1){
-    fbCargar().then(()=>{ doLogin(); });
-    return;
-  }
+  // Siempre recargar usuarios desde Firebase antes de validar (fix iOS)
+  try{
+    const snap=await _fbDB.collection(_fbCol).doc('users').get();
+    if(snap.exists){
+      const val=JSON.parse(snap.data().valor);
+      if(val&&Array.isArray(val)&&val.length>0) DB.users=val;
+    }
+  }catch(e){ console.warn('FB users load:',e.message); }
   const user=DB.users.find(x=>x.username===u&&x.password===p&&x.activo);
   if(!user){
     loginIntentos++;
