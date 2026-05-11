@@ -1273,16 +1273,18 @@ function badgeEstado(estado){
 // NUEVO PRÉSTAMO
 // ══════════════════════════════════════════════════════════════
 function renderNuevoPrestamo(){
-  // Si no hay clientes cargados pero Firebase está activo, intentar recargar
-  if(DB.clientes.length===0 && window._fbActivo){
-    fbCargar().then(()=>{
-      applyConfig();
-      renderNuevoPrestamo();
-    });
-    document.getElementById('page-nuevo-prestamo').innerHTML='<div style="padding:40px;text-align:center;color:var(--gray)"><div style="font-size:32px;margin-bottom:12px">⏳</div><div style="font-size:15px;font-weight:600">Cargando datos...</div><div style="font-size:12px;margin-top:8px">Obteniendo clientes de Firebase</div></div>';
+  if(DB.clientes.length===0){
+    var tel=escHtml(DB.config.telefono||'(809) 580-5525');
+    var emp=escHtml(DB.config.empresa||'Confido Financial');
+    var pg=document.getElementById('page-nuevo-prestamo');
+    if(!window._fbActivo){
+      pg.innerHTML='<div style="padding:40px;text-align:center"><p style="font-size:32px">&#128268;</p><h2 style="margin:12px 0">Sin conexi&oacute;n a Firebase</h2><p style="color:#6b7280;margin-bottom:20px">El sistema no pudo conectarse a la base de datos.</p><div style="background:#fef3c7;border-left:4px solid #d97706;border-radius:8px;padding:16px;text-align:left;max-width:400px;margin:0 auto 20px"><strong>&#128222; Contacta al administrador:</strong><br><span style="font-size:18px;font-weight:800">'+tel+'</span><br><span style="font-size:12px;color:#6b7280">'+emp+'</span></div><button class="btn btn-secondary" onclick="location.reload()">&#128260; Recargar</button></div>';
+    } else {
+      pg.innerHTML='<div style="padding:40px;text-align:center"><p style="font-size:32px">&#128101;</p><h2 style="margin:12px 0">No hay clientes registrados</h2><p style="color:#6b7280;margin-bottom:20px">Para crear un pr&eacute;stamo primero debes registrar clientes.</p><div style="background:#fef3c7;border-left:4px solid #d97706;border-radius:8px;padding:16px;text-align:left;max-width:400px;margin:0 auto 20px"><strong>&#128222; Contacta al administrador:</strong><br><span style="font-size:18px;font-weight:800">'+tel+'</span><br><span style="font-size:12px;color:#6b7280">'+emp+'</span></div><button class="btn btn-primary" onclick="showPage(&apos;clientes&apos;)" style="margin-right:8px">&#128100; Ir a Clientes</button><button class="btn btn-secondary" onclick="location.reload()">&#128260; Recargar</button></div>';
+    }
     return;
   }
-  document.getElementById('page-nuevo-prestamo').innerHTML=`
+    document.getElementById('page-nuevo-prestamo').innerHTML=`
     <div class="page-header"><h1 data-edit="titulo-prestamo" data-edit-label="Título Nuevo Préstamo" onclick="edClick(this)" style="cursor:default">💰 Nuevo Préstamo</h1><p>Registrar un nuevo crédito</p></div>
     <div>
       <div class="card" style="border-top:3px solid var(--blue)">
