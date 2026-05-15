@@ -277,6 +277,29 @@ select:focus,input:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 
 </head>
 <body>
 
+<!-- ══ FIREBASE ERROR OVERLAY ══ -->
+<div id="fb-error-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.97);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px">
+  <div style="background:#fff;border-radius:16px;padding:36px 40px;max-width:480px;width:100%;box-shadow:0 8px 40px rgba(0,0,0,.4)">
+    <div style="font-size:52px;margin-bottom:16px">🔴</div>
+    <div style="font-size:20px;font-weight:800;color:#dc2626;margin-bottom:12px">Firebase no conectado</div>
+    <div style="font-size:14px;color:#374151;line-height:1.7;margin-bottom:20px">
+      No se puede guardar ni modificar información sin conexión a Firebase.<br>
+      Por favor siga estos pasos para resolverlo:
+    </div>
+    <div style="text-align:left;background:#f9fafb;border-radius:10px;padding:16px;font-size:13px;color:#374151;line-height:2;margin-bottom:20px">
+      <div>1️⃣ Verifique su conexión a Internet</div>
+      <div>2️⃣ Cierre esta pestaña y vuelva a abrirla</div>
+      <div>3️⃣ Si persiste: presione <strong>Ctrl + Shift + R</strong> para recargar</div>
+      <div>4️⃣ Si el problema continúa, comuníquese con:<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#2563eb">Administrador: Edward Villa</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<strong style="color:#2563eb">📞 849-857-9190</strong>
+      </div>
+    </div>
+    <button onclick="document.getElementById('fb-error-overlay').style.display='none'" style="width:100%;padding:13px;background:#6b7280;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px">✅ Aceptar</button>
+    <button onclick="intentarReconectarFirebase()" style="width:100%;padding:13px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Intentar reconectar</button>
+  </div>
+</div>
+
 <!-- ══ LOGIN ══ -->
 <div id="login-screen">
   <div class="login-card">
@@ -448,11 +471,21 @@ function fmtMoneyInput(el){
   const parts = raw.split('.');
   let entero = parts[0] || '0';
   let decimal = parts[1] !== undefined ? parts[1].slice(0,2) : '';
+  // Quitar ceros a la izquierda excepto si viene decimal
+  if(decimal === '') entero = entero.replace(/^0+(?=\d)/,'') || '0';
   // Agregar comas a la parte entera
   entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g,',');
   el.value = decimal !== '' ? entero+'.'+decimal : entero;
   // Guardar valor numérico en dataset
   el.dataset.raw = parseFloat(raw||0);
+}
+function fmtMoneyVal(n){
+  // Formatea un número como valor de campo de dinero (con comas, sin símbolo)
+  const num = parseFloat(n||0);
+  if(!num) return '';
+  const parts = num.toFixed(2).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return parts[0]+'.'+parts[1];
 }
 function getRaw(id){
   const el=document.getElementById(id);
@@ -611,6 +644,7 @@ function mostrarBienvenida(user){
     setTimeout(()=>{
       ws.style.display='none';
       document.getElementById('app').style.display='block';
+      window._appListo = true; // App completamente cargada
       // Clase de rol en body para restricciones CSS
       document.body.className=document.body.className.replace(/rol-\S+/g,'').trim();
       if(currentUser) document.body.classList.add('rol-'+currentUser.role);
@@ -941,10 +975,10 @@ function renderDashboard(){
   if(dashCliente) pagosFiltrados=pagosFiltrados.filter(pg=>pg.idCliente===dashCliente);
   pagosFiltrados=pagosFiltrados.filter(pg=>enPeriodo(pg.fecha));
   const totalCobrado=pagosFiltrados.reduce((a,pg)=>a+pg.monto,0);
-  const beneficios=pagosFiltrados.reduce((a,pg)=>a+pg.multa,0)+totalInteres;
+  // Multas cobradas en el período
+  const multasCobradas=pagosFiltrados.reduce((a,pg)=>a+parseFloat(pg.multa||0),0);
   // Intereses realmente cobrados en el período (de los pagos)
   const interesesCobrados=pagosFiltrados.reduce((a,pg)=>{
-    // Buscar la cuota correspondiente para saber su interés
     const prest=DB.prestamos.find(x=>x.id===pg.idPrestamo);
     if(!prest)return a;
     const cuota=prest.cuotas.find(x=>x.num===pg.numCuota);
@@ -953,7 +987,8 @@ function renderDashboard(){
   // Gastos del período
   const gastosPeriodo=(DB.gastos||[]).filter(g=>enPeriodo(g.fecha)).reduce((a,g)=>a+parseFloat(g.monto||0),0);
   const nominaPeriodo=(DB.nomina_pagos||[]).filter(n=>enPeriodo(n.fecha)).reduce((a,n)=>a+parseFloat(n.salario||0),0);
-  const beneficioNeto=interesesCobrados-gastosPeriodo-nominaPeriodo;
+  // Beneficio neto = intereses cobrados + multas - gastos - nomina
+  const beneficioNeto=interesesCobrados+multasCobradas-gastosPeriodo-nominaPeriodo;
 
   const cuotasVencidas=[];
   DB.prestamos.filter(p=>p.estado==='ACTIVO').forEach(p=>{
@@ -994,11 +1029,14 @@ function renderDashboard(){
     </div>
     ${cuotasVencidas.length?`<div class="alert alert-danger">⚠️ Tienes <strong>${cuotasVencidas.length}</strong> cuotas vencidas por un monto total de <strong>${fmt(montoVencido)}</strong> — <a href="#" onclick="showPage('vencidas')">Ver todas</a></div>`:''}
     ${cuotasHoy.length?`<div class="alert alert-warning">🔔 Hay <strong>${cuotasHoy.length}</strong> cuotas que vencen en los próximos 7 días</div>`:''}
-    <div class="ig stats-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="ig stats-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card blue"><div class="stat-ico">💰</div><div class="stat-label">Capital en calle</div><div class="stat-value" style="font-size:16px">${fmt(totalCapital)}</div><div class="stat-sub">${prestActivos.length} préstamos activos</div></div>
       <div class="stat-card green"><div class="stat-ico">💳</div><div class="stat-label">Cobrado ${dashMes?['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][parseInt(dashMes)-1]+' '+dashAnio:dashAnio}</div><div class="stat-value" style="font-size:16px">${fmt(totalCobrado)}</div><div class="stat-sub">${pagosFiltrados.length} pagos</div></div>
       <div class="stat-card amber"><div class="stat-ico">📈</div><div class="stat-label">Intereses cobrados</div><div class="stat-value" style="font-size:16px">${fmt(interesesCobrados)}</div><div class="stat-sub">${dashCliente?'Cliente seleccionado':'Período seleccionado'}</div></div>
-      <div class="stat-card purple"><div class="stat-ico">🏆</div><div class="stat-label">Beneficio neto</div><div class="stat-value" style="font-size:16px">${fmt(beneficioNeto)}</div><div class="stat-sub">Intereses - Gastos período</div></div>
+    </div>
+    <div class="ig stats-grid" style="grid-template-columns:repeat(3,1fr);margin-top:-4px">
+      <div class="stat-card" style="border-top:3px solid #f59e0b;background:linear-gradient(135deg,#fffbf0 0%,#fff 100%)"><div class="stat-ico">⚡</div><div class="stat-label">Multas cobradas</div><div class="stat-value" style="font-size:16px;color:#d97706">${fmt(multasCobradas)}</div><div class="stat-sub">Incluidas en beneficio neto</div></div>
+      <div class="stat-card purple"><div class="stat-ico">🏆</div><div class="stat-label">Beneficio neto</div><div class="stat-value" style="font-size:16px">${fmt(beneficioNeto)}</div><div class="stat-sub">Intereses + Multas - Gastos</div></div>
       <div class="stat-card red"><div class="stat-ico">⚠️</div><div class="stat-label">Monto vencido</div><div class="stat-value" style="font-size:16px">${fmt(montoVencido)}</div><div class="stat-sub">${cuotasVencidas.length} cuotas en mora</div></div>
     </div>
     <div class="two-col">
@@ -1116,7 +1154,7 @@ function renderClientes(){
         <div class="form-field"><label class="required">Celular</label><input type="text" id="cl-tel" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
       </div>
       <div class="form-row c3 fr3">
-        <div class="form-field"><label>Ingresos mensuales</label><input type="number" id="cl-ing" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-field"><label>Ingresos mensuales</label><input type="text" id="cl-ing" placeholder="0.00" oninput="fmtMoneyInput(this)"></div>
         <div class="form-field"><label>Correo</label><input type="email" id="cl-cor" placeholder="correo@email.com"></div>
         <div class="form-field"><label>Teléfono 2</label><input type="text" id="cl-tel2" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
       </div>
@@ -1172,7 +1210,7 @@ function clGuardar(){
     ocupacion:document.getElementById('cl-ocu').value,
     tel:document.getElementById('cl-tel').value,
     tel2:document.getElementById('cl-tel2')?.value||'',
-    ingresos:parseFloat(document.getElementById('cl-ing').value)||0,
+    ingresos:getRaw('cl-ing'),
     dir:document.getElementById('cl-dir').value,
     correo:document.getElementById('cl-cor').value,
     referencia:document.getElementById('cl-ref').value,
@@ -1200,7 +1238,7 @@ function clEditar(i){
         </div>
       </div>
       <div class="form-field"><label>Celular</label><input type="text" id="ec-tel" value="${escHtml(c.tel||'')}"></div>
-      <div class="form-field"><label>Ingresos mensuales</label><input type="number" id="ec-ing" value="${c.ingresos||0}" step="0.01"></div>
+      <div class="form-field"><label>Ingresos mensuales</label><input type="text" id="ec-ing" value="${fmtMoneyVal(c.ingresos||0)}" oninput="fmtMoneyInput(this)"></div>
     </div>
     <div class="form-field"><label>Dirección</label><input type="text" id="ec-dir" value="${escHtml(c.dir||'')}"></div>
     <div class="form-row c2 fr2">
@@ -1219,7 +1257,7 @@ function clEditarGuardar(i){
   DB.clientes[i].cedula=document.getElementById('ec-ced').value.trim();
   DB.clientes[i].tipoDoc=document.getElementById('ec-tipo-doc')?.value||'cedula';
   DB.clientes[i].tel=document.getElementById('ec-tel').value.trim();
-  DB.clientes[i].ingresos=parseFloat(document.getElementById('ec-ing').value)||0;
+  DB.clientes[i].ingresos=getRaw('ec-ing');
   DB.clientes[i].dir=document.getElementById('ec-dir').value.trim();
   DB.clientes[i].correo=document.getElementById('ec-cor').value.trim();
   DB.clientes[i].referencia=document.getElementById('ec-ref').value.trim();
@@ -1297,7 +1335,7 @@ function renderNuevoPrestamo(){
           </div>
           <div id="np-cliente-info"></div>
           <div class="form-row c3 fr3">
-            <div class="form-field"><label class="required">Monto del préstamo</label><input type="number" id="np-monto" placeholder="0.00" step="0.01" min="0" oninput="npActualizar()"></div>
+            <div class="form-field"><label class="required">Monto del préstamo</label><input type="text" id="np-monto" placeholder="0.00" oninput="fmtMoneyInput(this);npActualizar()"></div>
             <div class="form-field"><label class="required">Moneda</label>
               <select id="np-moneda" onchange="npActualizar()">
                 <option value="RD$" ${(DB.config.moneda||'RD$')==='RD$'?'selected':''}>RD$ - Pesos dominicanos</option>
@@ -1357,7 +1395,7 @@ function renderNuevoPrestamo(){
 }
 
 function npActualizar(){
-  const monto=parseFloat(document.getElementById('np-monto')?.value)||0;
+  const monto=getRaw('np-monto');
   const tasa=parseFloat(document.getElementById('np-tasa')?.value)||0;
   const ncuotas=parseInt(document.getElementById('np-cuotas')?.value)||0;
   const forma=document.getElementById('np-forma')?.value||'Mensual';
@@ -1431,7 +1469,7 @@ function npActualizar(){
 // ── Preview pre-guardar ──
 function npGetPreviewData(){
   const idCliente=document.getElementById('np-cli').value;
-  const monto=parseFloat(document.getElementById('np-monto').value)||0;
+  const monto=getRaw('np-monto');
   const tasa=parseFloat(document.getElementById('np-tasa').value)||0;
   const ncuotas=parseInt(document.getElementById('np-cuotas').value)||0;
   const forma=document.getElementById('np-forma').value;
@@ -1472,7 +1510,7 @@ function npPreviewPagare(){
 }
 function npGuardar(){
   const idCliente=document.getElementById('np-cli').value;
-  const monto=parseFloat(document.getElementById('np-monto').value)||0;
+  const monto=getRaw('np-monto');
   const tasa=parseFloat(document.getElementById('np-tasa').value)||0;
   const ncuotas=parseInt(document.getElementById('np-cuotas').value)||0;
   const forma=document.getElementById('np-forma').value;
@@ -1617,15 +1655,15 @@ function editarPago(idPrestamo, numCuota){
     <div style="display:grid;gap:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div><label class="form-label">Monto abonado</label>
-          <input id="ep-abono" type="number" class="form-input" value="${c.abono||0}" min="0" step="0.01"></div>
+          <input id="ep-abono" type="text" class="form-input" value="${fmtMoneyVal(c.abono||0)}" oninput="fmtMoneyInput(this)"></div>
         <div><label class="form-label">Fecha de pago</label>
           <input id="ep-fecha" type="date" class="form-input" value="${c.fechaPago||''}"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div><label class="form-label">Mora (RD$)</label>
-          <input id="ep-mora" type="number" class="form-input" value="${c.mora||0}" min="0" step="0.01"></div>
+          <input id="ep-mora" type="text" class="form-input" value="${fmtMoneyVal(c.mora||0)}" oninput="fmtMoneyInput(this)"></div>
         <div><label class="form-label">Multa (RD$)</label>
-          <input id="ep-multa" type="number" class="form-input" value="${c.multa||0}" min="0" step="0.01"></div>
+          <input id="ep-multa" type="text" class="form-input" value="${fmtMoneyVal(c.multa||0)}" oninput="fmtMoneyInput(this)"></div>
       </div>
       <div><label class="form-label">Estado</label>
         <select id="ep-estado" class="form-input">
@@ -1645,10 +1683,10 @@ function editarPagoGuardar(idPrestamo, numCuota){
   if(!p)return;
   const c=p.cuotas.find(x=>x.num===numCuota);
   if(!c)return;
-  const abono=parseFloat(document.getElementById('ep-abono').value)||0;
+  const abono=getRaw('ep-abono');
   const fecha=document.getElementById('ep-fecha').value||null;
-  const mora=parseFloat(document.getElementById('ep-mora').value)||0;
-  const multa=parseFloat(document.getElementById('ep-multa').value)||0;
+  const mora=getRaw('ep-mora');
+  const multa=getRaw('ep-multa');
   const estadoSel=document.getElementById('ep-estado').value;
   if(estadoSel==='PENDIENTE'){
     c.abono=0;c.fechaPago=null;c.mora=0;c.multa=0;c._estadoForzado=null;
@@ -1770,7 +1808,7 @@ function renderPagos(){
         <div id="pg-abono-info"></div>
         <div class="form-row c3 fr3" style="margin-top:12px">
           <div class="form-field"><label class="required">Monto del abono</label>
-            <input type="number" id="ab-monto" placeholder="0.00" step="0.01" min="0">
+            <input type="text" id="ab-monto" placeholder="0.00" oninput="fmtMoneyInput(this)">
           </div>
           <div class="form-field"><label>Fecha</label>
             <input type="date" id="ab-fecha" value="${today()}">
@@ -1946,15 +1984,15 @@ function pgRegistrarPago(idPrestamo,numCuota){
   const multaEst=calcMulta(cu,DB.config.multa_pct||5);
   const abonoAnterior=cu.abono||0;
 
-  // Calcular interés proporcional según días transcurridos
-  const interesProp=calcInteresProporcional(cu, p, today());
+  // Cuota SIEMPRE fija — capital + interés completo
+  const cuotaCompleta=cu.amortizacion; // Capital + Interés fijo (nunca rebajado)
+  const interesFijo=cu.interes;
+  const capitalFijo=cu.capital;
+
+  // Para mostrar info de días que faltan (solo informativo)
   const esAnticipado=cu.fechaCuota>today();
   const esMismoDia=cu.fechaCuota===today();
-
-  // Monto por defecto = cuota total completa (amortizacion) - ya abonado
-  // Si es anticipado, usar capital + interés proporcional
-  const montoBaseDefault = esAnticipado ? (cu.capital + interesProp) : cu.amortizacion;
-  const montoPorDefecto=parseFloat(Math.max(0, montoBaseDefault - abonoAnterior).toFixed(2));
+  const interesProp=calcInteresProporcional(cu, p, today()); // Solo referencia
 
   // Etiqueta de situación
   let situacionHtml='';
@@ -1963,10 +2001,12 @@ function pgRegistrarPago(idPrestamo,numCuota){
   } else if(esMismoDia){
     situacionHtml='<div style="margin-top:8px;padding:8px;background:var(--amber2);border-radius:var(--radius-sm);color:var(--amber);font-weight:600;font-size:12px">📅 Vence hoy — Interés completo</div>';
   } else {
-    // Anticipado — mostrar cuántos días faltan y el interés proporcional
     const diasFaltan=Math.round((new Date(cu.fechaCuota+'T12:00:00')-new Date())/(1000*60*60*24));
-    situacionHtml=`<div style="margin-top:8px;padding:8px;background:var(--green2);border-radius:var(--radius-sm);color:var(--green);font-weight:600;font-size:12px">⏰ Faltan ${diasFaltan} días — Interés proporcional: ${fmtP(interesProp)}</div>`;
+    situacionHtml=`<div style="margin-top:8px;padding:8px;background:var(--green2);border-radius:var(--radius-sm);color:var(--green);font-weight:600;font-size:12px">⏰ Faltan ${diasFaltan} días — Interés proporcional ref.: ${fmtP(interesProp)}</div>`;
   }
+
+  // Monto por defecto = cuota completa (fija) - ya abonado
+  const montoPorDefecto=parseFloat(Math.max(0, cuotaCompleta - abonoAnterior).toFixed(2));
 
   openModal(`💳 Registrar pago — Cuota #${numCuota} de ${idPrestamo}`,`
     <div style="background:var(--gray2);padding:12px;border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px">
@@ -1977,25 +2017,37 @@ function pgRegistrarPago(idPrestamo,numCuota){
         <div><strong>Modalidad:</strong> <span class="badge badge-purple" style="font-size:10px">${p.modalidad==='solo_interes'?'Solo Intereses':'Cap+Interés'}</span></div>
       </div>
       <div class="ig" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
-        <div style="padding:6px;background:var(--white);border-radius:var(--radius-sm)"><div style="font-size:9px;color:var(--gray)">Capital</div><div style="font-weight:700;font-size:12px">${fmtP(cu.capital)}</div></div>
-        <div style="padding:6px;background:${interesProp<cu.interes?'var(--green2)':'var(--amber2)'};border-radius:var(--radius-sm)">
+        <div style="padding:6px;background:var(--white);border-radius:var(--radius-sm)"><div style="font-size:9px;color:var(--gray)">Capital</div><div style="font-weight:700;font-size:12px">${fmtP(capitalFijo)}</div></div>
+        <div style="padding:6px;background:var(--amber2);border-radius:var(--radius-sm)">
           <div style="font-size:9px;color:var(--gray)">Interés a cobrar</div>
-          <div style="font-weight:700;font-size:12px;color:${interesProp<cu.interes?'var(--green)':'var(--amber)'}">
-            ${fmtP(interesProp)}${interesProp<cu.interes?' ✂':''}
-          </div>
-          ${interesProp<cu.interes?'<div style="font-size:9px;color:var(--gray);text-decoration:line-through">'+fmtP(cu.interes)+'</div>':''}
+          <div style="font-weight:700;font-size:12px;color:var(--amber)">${fmtP(interesFijo)}</div>
         </div>
-        <div style="padding:6px;background:var(--navy2);border-radius:var(--radius-sm)"><div style="font-size:9px;color:#94a3b8">A pagar hoy</div><div style="font-weight:700;font-size:12px;color:white">${fmtP(cu.capital+interesProp)}</div></div>
+        <div style="padding:6px;background:var(--navy2);border-radius:var(--radius-sm)"><div style="font-size:9px;color:#94a3b8">A pagar hoy</div><div style="font-weight:700;font-size:12px;color:white">${fmtP(cuotaCompleta)}</div></div>
       </div>
       ${situacionHtml}
       ${abonoAnterior>0?'<div style="margin-top:6px;font-size:12px;color:var(--green)">✔ Ya abonado: '+fmtP(abonoAnterior)+'</div>':''}
     </div>
+    <!-- DECISIÓN DEL COBRADOR -->
+    <div style="margin-bottom:14px;padding:10px;background:#f0f9ff;border:2px solid var(--blue);border-radius:var(--radius-sm)">
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">💼 Decisión del cobrador — ¿Qué cobrar?</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--gray3);border-radius:var(--radius-sm);font-size:12px;font-weight:600;background:var(--white)">
+          <input type="radio" name="tipo-cobro" value="completo" checked onchange="pgSetMontoDecision('${idPrestamo}',${numCuota})"> 💳 Capital + Interés <span style="color:var(--green);margin-left:4px">(${fmtP(cuotaCompleta)})</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--gray3);border-radius:var(--radius-sm);font-size:12px;font-weight:600;background:var(--white)">
+          <input type="radio" name="tipo-cobro" value="solo_capital" onchange="pgSetMontoDecision('${idPrestamo}',${numCuota})"> 🏦 Solo Capital <span style="color:var(--blue);margin-left:4px">(${fmtP(capitalFijo)})</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:6px 12px;border:1.5px solid var(--gray3);border-radius:var(--radius-sm);font-size:12px;font-weight:600;background:var(--white)">
+          <input type="radio" name="tipo-cobro" value="solo_interes" onchange="pgSetMontoDecision('${idPrestamo}',${numCuota})"> 📈 Solo Interés <span style="color:var(--amber);margin-left:4px">(${fmtP(interesFijo)})</span>
+        </label>
+      </div>
+    </div>
     <div class="form-row c2 fr2">
       <div class="form-field"><label class="required">Monto a pagar (${monedaP})</label>
-        <input type="number" id="pago-monto" value="${montoPorDefecto}" step="0.01" min="0">
+        <input type="text" id="pago-monto" value="${fmtMoneyVal(montoPorDefecto)}" oninput="fmtMoneyInput(this)">
       </div>
       <div class="form-field"><label>Multa cobrada (${monedaP})</label>
-        <input type="number" id="pago-multa" value="${dias>0?multaEst:0}" step="0.01" min="0">
+        <input type="text" id="pago-multa" value="${fmtMoneyVal(dias>0?multaEst:0)}" oninput="fmtMoneyInput(this)">
       </div>
     </div>
     <div class="form-row c3 fr3">
@@ -2012,15 +2064,28 @@ function pgRegistrarPago(idPrestamo,numCuota){
     <div class="form-field"><label>Notas</label><input type="text" id="pago-notas" placeholder="Observaciones..."></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
      <button class="btn btn-amber" onclick="pgImprimirReciboPreview('${idPrestamo}',${numCuota})">🖨️ Imprimir Recibo</button>
-     <button class="btn btn-green" onclick="pgConfirmarPago('${idPrestamo}',${numCuota},${interesProp})">✅ Confirmar pago</button>`);
+     <button class="btn btn-green" onclick="pgConfirmarPago('${idPrestamo}',${numCuota},${interesFijo})">✅ Confirmar pago</button>`);
+}
+
+function pgSetMontoDecision(idPrestamo, numCuota){
+  const p=DB.prestamos.find(x=>x.id===idPrestamo);
+  const cu=p.cuotas.find(x=>x.num===numCuota);
+  const tipo=document.querySelector('input[name="tipo-cobro"]:checked')?.value||'completo';
+  const abonoAnterior=cu.abono||0;
+  let monto=0;
+  if(tipo==='completo') monto=parseFloat(Math.max(0,cu.amortizacion-abonoAnterior).toFixed(2));
+  else if(tipo==='solo_capital') monto=parseFloat(Math.max(0,cu.capital-abonoAnterior).toFixed(2));
+  else if(tipo==='solo_interes') monto=cu.interes;
+  const el=document.getElementById('pago-monto');
+  if(el) el.value=fmtMoneyVal(monto);
 }
 
 function pgImprimirReciboPreview(idPrestamo,numCuota){
   // Preview del recibo con datos actuales del formulario (antes de confirmar)
   const p=DB.prestamos.find(x=>x.id===idPrestamo);if(!p)return;
   const cu=p.cuotas.find(x=>x.num===numCuota);if(!cu)return;
-  const monto=parseFloat(document.getElementById('pago-monto')?.value)||cu.amortizacion;
-  const multa=parseFloat(document.getElementById('pago-multa')?.value)||0;
+  const monto=getRaw('pago-monto')||cu.amortizacion;
+  const multa=getRaw('pago-multa');
   const fecha=document.getElementById('pago-fecha')?.value||today();
   const metodo=document.getElementById('pago-metodo')?.value||'Efectivo';
   const cobrador=document.getElementById('pago-cobrador')?.value||currentUser.nombre;
@@ -2037,8 +2102,8 @@ function pgImprimirReciboPreview(idPrestamo,numCuota){
 function pgConfirmarPago(idPrestamo,numCuota,interesProporcional){
   const p=DB.prestamos.find(x=>x.id===idPrestamo);
   const cuota=p.cuotas.find(x=>x.num===numCuota);
-  const monto=parseFloat(document.getElementById('pago-monto').value)||0;
-  const multa=parseFloat(document.getElementById('pago-multa').value)||0;
+  const monto=getRaw('pago-monto');
+  const multa=getRaw('pago-multa');
   const fecha=document.getElementById('pago-fecha').value;
   const metodo=document.getElementById('pago-metodo').value;
   const notas=document.getElementById('pago-notas').value;
@@ -2901,7 +2966,7 @@ function renderAbonos(){
         <div id="ab-info"></div>
         <div class="form-row c2 fr2" style="margin-top:12px">
           <div class="form-field"><label class="required">Monto del abono</label>
-            <input type="number" id="ab-monto" placeholder="0.00" step="0.01" min="0">
+            <input type="text" id="ab-monto" placeholder="0.00" oninput="fmtMoneyInput(this)">
           </div>
           <div class="form-field"><label>Fecha</label>
             <input type="date" id="ab-fecha" value="${today()}">
@@ -2973,7 +3038,7 @@ function abMostrarInfo(){
 function abRegistrarDesdeModal(){
   const idPrestamo=document.getElementById('pg-prest')?.value||'';
   if(!idPrestamo){toast('Selecciona un préstamo primero','error');return;}
-  const monto=parseFloat(document.getElementById('ab-monto')?.value)||0;
+  const monto=getRaw('ab-monto');
   if(!monto||monto<=0){toast('El monto del abono es requerido','error');return;}
   const fecha=document.getElementById('ab-fecha')?.value||today();
   const metodo=document.getElementById('ab-metodo')?.value||'Efectivo';
@@ -3063,7 +3128,7 @@ function abRegistrarPagosEnHistorial(p, montoAbono, fecha, metodo, cobrador){
 }
 function abRegistrar(){
   const idPrestamo=document.getElementById('ab-prest').value;
-  const monto=parseFloat(document.getElementById('ab-monto').value)||0;
+  const monto=getRaw('ab-monto');
   const fecha=document.getElementById('ab-fecha').value;
   const metodo=document.getElementById('ab-metodo').value;
   const notas=document.getElementById('ab-notas').value;
@@ -3634,7 +3699,7 @@ function renderGastos(){
         <div class="form-field"><label class="required">Categoría</label>
           <select id="gs-cat">${CAT_GASTOS.map(c=>`<option>${c}</option>`).join('')}</select>
         </div>
-        <div class="form-field"><label class="required">Monto</label><input type="number" id="gs-monto" placeholder="0.00" step="0.01" min="0"></div>
+        <div class="form-field"><label class="required">Monto</label><input type="text" id="gs-monto" placeholder="0.00" oninput="fmtMoneyInput(this)"></div>
         <div class="form-field"><label>Descripción</label><input type="text" id="gs-desc" placeholder="Descripción del gasto"></div>
       </div>
       <div class="btn-row"><button class="btn btn-red" onclick="gsGuardar()">💾 Registrar gasto</button></div>
@@ -3659,7 +3724,7 @@ function renderGastos(){
 }
 const CAT_GASTOS=['Alquiler','Electricidad','Agua','Teléfono/Internet','Transporte','Nómina','Publicidad','Mantenimiento','Limpieza','Equipos','Otros'];
 function gsGuardar(){
-  const monto=parseFloat(document.getElementById('gs-monto').value)||0;
+  const monto=getRaw('gs-monto');
   const cat=document.getElementById('gs-cat').value;
   if(!monto){toast('El monto es requerido','error');return;}
   if(!DB.gastos)DB.gastos=[];
@@ -3696,7 +3761,7 @@ function renderNomina(){
             <select id="nm-quick-tipo"><option>Semanal</option><option>Primera quincena</option><option>Segunda quincena</option><option>Doble sueldo</option><option>Comisión</option><option>Bono</option><option>Adelanto</option><option>Otros</option></select>
           </div>
           <div class="form-field"><label>Monto</label>
-            <input type="number" id="nm-quick-monto" placeholder="0.00" step="0.01" min="0">
+            <input type="text" id="nm-quick-monto" placeholder="0.00" oninput="fmtMoneyInput(this)">
           </div>
         </div>
         <div class="form-row c2 fr2">
@@ -3713,7 +3778,7 @@ function renderNomina(){
           <div class="form-field"><label>Cargo</label><input type="text" id="nm-cargo" placeholder="Ej: Cobrador, Asistente"></div>
         </div>
         <div class="form-row c3 fr3">
-          <div class="form-field"><label>Salario base</label><input type="number" id="nm-salario" placeholder="0.00" step="0.01" min="0"></div>
+          <div class="form-field"><label>Salario base</label><input type="text" id="nm-salario" placeholder="0.00" oninput="fmtMoneyInput(this)"></div>
           <div class="form-field"><label>Celular</label><input type="text" id="nm-tel" placeholder="809-000-0000" maxlength="12" oninput="fmtTel(this)"></div>
           <div class="form-field"><label class="required">Fecha de ingreso</label><input type="date" id="nm-ingreso" value="${today()}"></div>
         </div>
@@ -3765,7 +3830,7 @@ function renderNomina(){
 
 function nmPagoRapido(){
   const idEmp=document.getElementById('nm-emp-quick')?.value;
-  const monto=parseFloat(document.getElementById('nm-quick-monto')?.value)||0;
+  const monto=getRaw('nm-quick-monto');
   const tipo=document.getElementById('nm-quick-tipo')?.value||'Semanal';
   const fecha=document.getElementById('nm-quick-fecha')?.value||today();
   const notas=document.getElementById('nm-quick-notas')?.value||'';
@@ -3786,7 +3851,7 @@ function nmGuardarEmp(){
   DB.nomina_emp.push({id:uid(),nombre:nom,
     documento:document.getElementById('nm-doc').value,
     cargo:document.getElementById('nm-cargo').value,
-    salario:parseFloat(document.getElementById('nm-salario').value)||0,
+    salario:getRaw('nm-salario'),
     tel:document.getElementById('nm-tel').value,
     fechaIngreso:document.getElementById('nm-ingreso').value,
     fechaSalida:'',causaSalida:'',activo:true});
@@ -3810,7 +3875,7 @@ function nmEditarEmp(id){
         <input type="text" id="nme-cargo" value="${escHtml(e.cargo||'')}">
       </div>
       <div class="form-field"><label>Salario base</label>
-        <input type="number" id="nme-salario" value="${e.salario||0}" step="0.01" min="0">
+        <input type="text" id="nme-salario" value="${fmtMoneyVal(e.salario||0)}" oninput="fmtMoneyInput(this)">
       </div>
     </div>
     <div class="form-row c2 fr2">
@@ -3833,7 +3898,7 @@ function nmGuardarEdicion(id){
   e.nombre=nom;
   e.documento=document.getElementById('nme-doc').value.trim();
   e.cargo=document.getElementById('nme-cargo').value.trim();
-  e.salario=parseFloat(document.getElementById('nme-salario').value)||0;
+  e.salario=getRaw('nme-salario');
   e.tel=document.getElementById('nme-tel').value.trim();
   e.fechaIngreso=document.getElementById('nme-ingreso').value;
   sDB('nomina_emp');
@@ -3882,7 +3947,7 @@ function nmRegistrarPago(idEmp){
         </select>
       </div>
     </div>
-    <div class="form-field"><label>Monto</label><input type="number" id="np-monto" value="${e.salario||0}" step="0.01" min="0"></div>
+    <div class="form-field"><label>Monto</label><input type="text" id="np-monto" value="${fmtMoneyVal(e.salario||0)}" oninput="fmtMoneyInput(this)"></div>
     <div class="form-field"><label>Notas</label><input type="text" id="np-notas" placeholder="Observaciones..."></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
      <button class="btn btn-green" onclick="nmConfirmarPago('${idEmp}')">✅ Confirmar pago</button>`);
@@ -3890,7 +3955,7 @@ function nmRegistrarPago(idEmp){
 
 function nmConfirmarPago(idEmp){
   const e=DB.nomina_emp.find(x=>x.id===idEmp);
-  const monto=parseFloat(document.getElementById('np-monto').value)||0;
+  const monto=getRaw('np-monto');
   if(!monto){toast('El monto es requerido','error');return;}
   if(!DB.nomina_pagos)DB.nomina_pagos=[];
   DB.nomina_pagos.push({id:uid(),idEmp,empleado:e.nombre,
@@ -4655,21 +4720,32 @@ async function fbCargar(){
 const _sDB_orig = sDB;
 window._fbActivo = false;
 window.sDB = function(key){
-  try { _sDB_orig(key); } catch(e){}
-  if(window._fbActivo){
-    const dot=document.getElementById('fb-dot');
-    const txt=document.getElementById('fb-text');
-    if(dot) dot.style.background='#f59e0b';
-    if(txt) txt.textContent='Guardando...';
-    fbGuardar(key).then(()=>{
-      if(dot) dot.style.background='#22c55e';
-      if(txt) txt.textContent='✓ Guardado';
-    }).catch(()=>{
-      if(dot) dot.style.background='#ef4444';
-      if(txt) txt.textContent='Error al guardar';
-    });
+  // Bloquear guardado si Firebase no está activo
+  // Solo mostrar error si la app ya está completamente cargada
+  if(!window._fbActivo){
+    if(window._appListo) mostrarErrorFirebase();
+    return;
   }
+  try { _sDB_orig(key); } catch(e){}
+  const dot=document.getElementById('fb-dot');
+  const txt=document.getElementById('fb-text');
+  if(dot) dot.style.background='#f59e0b';
+  if(txt) txt.textContent='Guardando...';
+  fbGuardar(key).then(()=>{
+    if(dot) dot.style.background='#22c55e';
+    if(txt) txt.textContent='✓ Guardado';
+  }).catch(()=>{
+    if(dot) dot.style.background='#ef4444';
+    if(txt) txt.textContent='Error al guardar';
+    mostrarErrorFirebase();
+  });
 };
+
+function mostrarErrorFirebase(){
+  // Mostrar modal bloqueante de error Firebase
+  const overlay=document.getElementById('fb-error-overlay');
+  if(overlay) overlay.style.display='flex';
+}
 
 window.fbIniciar = async function(){
   const dot=document.getElementById('fb-dot');
@@ -4727,6 +4803,33 @@ window.fbIniciar = async function(){
   } catch(e) {
     setStatus('#ef4444','Sin conexión');
     console.warn('Firebase error:', e.message);
+    window._fbActivo = false;
+  }
+};
+
+window.intentarReconectarFirebase = async function(){
+  const overlay=document.getElementById('fb-error-overlay');
+  if(overlay) overlay.style.display='none';
+  try {
+    const snap=await _fbDB.collection(_fbCol).doc('config').get();
+    if(snap.exists){
+      window._fbActivo=true;
+      await fbCargar();
+      const dot=document.getElementById('fb-dot');
+      const txt=document.getElementById('fb-text');
+      if(dot) dot.style.background='#22c55e';
+      if(txt) txt.textContent='✓ Firebase';
+      applyConfig();
+      if(typeof applyEstilos==='function') applyEstilos();
+      if(typeof buildNav==='function') buildNav();
+      toast('✅ Reconectado a Firebase correctamente','success');
+    } else {
+      throw new Error('No se pudo verificar Firebase');
+    }
+  } catch(e){
+    window._fbActivo=false;
+    if(overlay) overlay.style.display='flex';
+    toast('❌ No se pudo reconectar. Verifique su conexión.','error');
   }
 };
 </script>
