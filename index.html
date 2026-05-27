@@ -1925,6 +1925,10 @@ function pgMostrarCuotas(){
   const interesPendiente=p.totalInteres-interesPagado;
   const capitalPagado=cuotasPagadas.reduce((a,cu)=>a+cu.capital,0);
   const capitalPendiente=p.capital-capitalPagado;
+  // Multas cobradas (cuotas pagadas con multa registrada)
+  const multaCobrada=cuotasPagadas.reduce((a,cu)=>a+parseFloat(cu.multa||0),0);
+  // Multas pendientes (cuotas vencidas aún no pagadas: multa estimada)
+  const multaPendiente=p.cuotas.filter(cu=>calcEstadoCuota(cu)==='VENCIDA').reduce((a,cu)=>a+calcMulta(cu,DB.config.multa_pct||5),0);
   document.getElementById('pg-info').innerHTML=`
     <div style="background:var(--gray2);padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-top:10px">
       <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
@@ -1937,10 +1941,15 @@ function pgMostrarCuotas(){
         <div style="padding:8px;background:var(--green2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--green)">Capital pagado</div><div style="font-weight:700;color:var(--green)">${fmtP(capitalPagado)}</div></div>
         <div style="padding:8px;background:var(--red2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--red)">Capital pendiente</div><div style="font-weight:700;color:var(--red)">${fmtP(capitalPendiente)}</div></div>
       </div>
-      <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+      <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
         <div style="padding:8px;background:var(--white);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--gray)">Total intereses</div><div style="font-weight:700;color:var(--amber)">${fmtP(p.totalInteres)}</div></div>
         <div style="padding:8px;background:var(--green2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--green)">Interés pagado</div><div style="font-weight:700;color:var(--green)">${fmtP(interesPagado)}</div></div>
         <div style="padding:8px;background:var(--amber2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--amber)">Interés pendiente</div><div style="font-weight:700;color:var(--amber)">${fmtP(interesPendiente)}</div></div>
+      </div>
+      <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        <div style="padding:8px;background:#fdf2f8;border:1px solid #f0abdc;border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:#9d174d;font-weight:600">⚡ Total multas</div><div style="font-weight:700;color:#9d174d">${fmtP(multaCobrada+multaPendiente)}</div></div>
+        <div style="padding:8px;background:var(--green2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--green)">Multa cobrada</div><div style="font-weight:700;color:var(--green)">${multaCobrada>0?fmtP(multaCobrada):'—'}</div></div>
+        <div style="padding:8px;background:var(--red2);border-radius:var(--radius-sm);text-align:center"><div style="font-size:10px;color:var(--red)">Multa pendiente</div><div style="font-weight:700;color:var(--red)">${multaPendiente>0?fmtP(multaPendiente):'—'}</div></div>
       </div>
       <div style="margin-bottom:4px;font-size:11px;color:var(--gray)">Progreso de pago: ${pct}% — Total pagado: ${fmtP(totalAbonado)} de ${fmtP(p.totalPagar)}</div>
       <div class="progress-bar" style="height:10px"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
