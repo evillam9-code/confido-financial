@@ -2454,11 +2454,13 @@ function imprimirReciboConDatos(pg,p,cuota,tituloModal){
     <div class="ig" style="border-top:3px solid #2563eb;border-bottom:3px solid #2563eb;padding:14px 0;margin:10px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px">
       <div><span style="color:#64748b;font-weight:600">CLIENTE:</span><div style="font-weight:700;color:#0f172a">${escHtml(pg.nombreCliente||'—')}</div></div>
       <div><span style="color:#64748b;font-weight:600">PRÉSTAMO:</span><div style="font-weight:700;color:#2563eb;font-family:monospace">${escHtml(pg.idPrestamo||'—')}</div></div>
-      <div><span style="color:#64748b;font-weight:600">CUOTA #:</span><div style="font-weight:700">${pg.numCuota||'—'}</div></div>
+      ${pg.origenAbono
+        ? `<div style="grid-column:1/-1"><span style="color:#7c3aed;font-weight:600">CONCEPTO:</span><div style="font-weight:700;color:#7c3aed">💵 Abono a capital — Cuota #${pg.numCuota||'—'} saldada</div></div>`
+        : `<div><span style="color:#64748b;font-weight:600">CUOTA #:</span><div style="font-weight:700">${pg.numCuota||'—'}</div></div>`}
       <div><span style="color:#64748b;font-weight:600">FECHA PAGO:</span><div style="font-weight:700">${fmtDate(pg.fecha)}</div></div>
-      <div><span style="color:#64748b;font-weight:600">VENCIMIENTO:</span><div style="font-weight:700;color:${new Date(pg.fechaVencimiento+'T12:00:00')<new Date(pg.fecha+'T12:00:00')?'#dc2626':'#0f172a'}">${fmtDate(pg.fechaVencimiento)}</div></div>
+      ${!pg.origenAbono?`<div><span style="color:#64748b;font-weight:600">VENCIMIENTO:</span><div style="font-weight:700;color:${new Date(pg.fechaVencimiento+'T12:00:00')<new Date(pg.fecha+'T12:00:00')?'#dc2626':'#0f172a'}">${fmtDate(pg.fechaVencimiento)}</div></div>`:''}
       <div><span style="color:#64748b;font-weight:600">MÉTODO:</span><div style="font-weight:700">${escHtml(pg.metodo||'Efectivo')}</div></div>
-      ${cuota?`<div><span style="color:#64748b;font-weight:600">CUOTAS PAGADAS:</span><div style="font-weight:700">${cuotasPagadas} de ${p?.numCuotas||'—'}</div></div>`:''}
+      ${cuota&&!pg.origenAbono?`<div><span style="color:#64748b;font-weight:600">CUOTAS PAGADAS:</span><div style="font-weight:700">${cuotasPagadas} de ${p?.numCuotas||'—'}</div></div>`:''}
       <div><span style="color:#64748b;font-weight:600">COBRADO POR:</span><div style="font-weight:700">${escHtml(pg.cobrador||'—')}</div></div>
     </div>
     <div style="background:#eff6ff;border-radius:8px;padding:12px;margin-bottom:10px;text-align:center">
@@ -2492,9 +2494,9 @@ function imprimirReciboConDatos(pg,p,cuota,tituloModal){
       <div class="r-header">
         ${empresaHtml}
         <div style="text-align:right">
-          <div class="r-title">RECIBO DE PAGO</div>
+          <div class="r-title">${pg.origenAbono?'RECIBO DE ABONO A CAPITAL':'RECIBO DE PAGO'}</div>
           <div class="r-num">No. ${escHtml(pg.id||'PREVIEW')}</div>
-          <div style="font-size:9px;margin-top:2px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:10px;font-weight:700">COPIA CLIENTE</div>
+          <div style="font-size:9px;margin-top:2px;background:${pg.origenAbono?'#ede9fe':'#dbeafe'};color:${pg.origenAbono?'#7c3aed':'#1d4ed8'};padding:2px 8px;border-radius:10px;font-weight:700">COPIA CLIENTE</div>
         </div>
       </div>
       ${reciboBody}
@@ -2506,9 +2508,9 @@ function imprimirReciboConDatos(pg,p,cuota,tituloModal){
       <div class="r-header">
         ${empresaHtml}
         <div style="text-align:right">
-          <div class="r-title">RECIBO DE PAGO</div>
+          <div class="r-title">${pg.origenAbono?'RECIBO DE ABONO A CAPITAL':'RECIBO DE PAGO'}</div>
           <div class="r-num">No. ${escHtml(pg.id||'PREVIEW')}</div>
-          <div style="font-size:9px;margin-top:2px;background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:700">COPIA EMPRESA</div>
+          <div style="font-size:9px;margin-top:2px;background:${pg.origenAbono?'#d8b4fe':'#dcfce7'};color:${pg.origenAbono?'#6d28d9':'#16a34a'};padding:2px 8px;border-radius:10px;font-weight:700">COPIA EMPRESA</div>
         </div>
       </div>
       ${reciboBody}
