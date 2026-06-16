@@ -844,10 +844,13 @@ function skipDomingo(fecha){
   return fecha;
 }
 
-function calcAmortizacion(capital, tasaMensual, numCuotas, fechaInicio, formaPago, modalidad='capital_interes'){
+function calcAmortizacion(capital, tasaMensual, numCuotas, fechaInicio, formaPago, modalidad='capital_interes_fijo'){
+  // Compatibilidad con valores antiguos
+  if(modalidad==='capital_interes') modalidad='capital_interes_fijo';
+  if(modalidad==='solo_interes') modalidad='solo_interes_fijo';
+
   const cuotas=[];
   const cap=parseFloat(capital);
-  // INTERÉS FIJO — siempre sobre el capital original
   const tasa=parseFloat(tasaMensual)/100;
   const interesFijo=parseFloat((cap*tasa).toFixed(2));
   const capitalPorCuota=parseFloat((cap/numCuotas).toFixed(2));
@@ -874,33 +877,66 @@ function calcAmortizacion(capital, tasaMensual, numCuotas, fechaInicio, formaPag
     else { fecha=_sumarMes(_fechaBase,i); }
     skipDomingo(fecha);
 
-    let capitalCuota, amortizacion, saldoFinal;
+    let capitalCuota, interesActual, amortizacion, saldoFinal, deudaIni;
 
-    if(modalidad==='solo_interes'){
-      // Solo intereses: cada cuota paga interés fijo sobre capital original
-      // Capital se paga completo en la última cuota
+    if(modalidad==='capital_interes_fijo'){
+      // Interés siempre sobre capital ORIGINAL, cuota siempre igual
+      capitalCuota=capitalPorCuota;
+      interesActual=interesFijo;
+      amortizacion=parseFloat((capitalPorCuota+interesFijo).toFixed(2));
+      saldo=parseFloat(Math.max(0,saldo-capitalPorCuota).toFixed(2));
+      deudaIni=parseFloat((saldo+capitalPorCuota).toFixed(2));
+      saldoFinal=saldo;
+    } else if(modalidad==='capital_interes_amortizable'){
+      // Interés sobre saldo actual (va bajando)
+      interesActual=parseFloat((saldo*tasa).toFixed(2));
+      capitalCuota=capitalPorCuota;
+      amortizacion=parseFloat((capitalPorCuota+interesActual).toFixed(2));
+      deudaIni=saldo;
+      saldo=parseFloat(Math.max(0,saldo-capitalPorCuota).toFixed(2));
+      saldoFinal=saldo;
+    } else if(modalidad==='solo_interes_fijo'){
+      // Solo interés fijo en cada cuota, capital al final
+      capitalCuota=0;
+      interesActual=interesFijo;
+      deudaIni=cap;
       if(i===numCuotas){
-        capitalCuota=cap; // todo el capital al final
+        capitalCuota=cap;
         amortizacion=parseFloat((interesFijo+cap).toFixed(2));
         saldoFinal=0;
       } else {
-        capitalCuota=0;
+        amortizacion=interesFijo;
+        saldoFinal=cap;
+      }
+    } else if(modalidad==='solo_interes_amortizable'){
+      // Solo interés en cada cuota (calculado sobre capital original),
+      // capital no baja con cuotas pero puede bajar con abonos
+      capitalCuota=0;
+      interesActual=interesFijo;
+      deudaIni=cap;
+      if(i===numCuotas){
+        capitalCuota=cap;
+        amortizacion=parseFloat((interesFijo+cap).toFixed(2));
+        saldoFinal=0;
+      } else {
         amortizacion=interesFijo;
         saldoFinal=cap;
       }
     } else {
-      // Capital + Interés FIJO: interés siempre sobre capital original
+      // Fallback = capital+interes fijo
       capitalCuota=capitalPorCuota;
+      interesActual=interesFijo;
       amortizacion=parseFloat((capitalPorCuota+interesFijo).toFixed(2));
       saldo=parseFloat(Math.max(0,saldo-capitalPorCuota).toFixed(2));
+      deudaIni=parseFloat((saldo+capitalPorCuota).toFixed(2));
       saldoFinal=saldo;
     }
 
     cuotas.push({
       num:i,
       fechaCuota:fecha.toISOString().slice(0,10),
-      deudaInicial:parseFloat((saldoFinal+(modalidad==='solo_interes'?0:capitalCuota)).toFixed(2)),
-      interes:interesFijo,
+      deudaInicial:parseFloat((deudaIni||0).toFixed(2)),
+      interes:interesActual,
       capital:capitalCuota,
       amortizacion,
       saldoFinal,
@@ -912,7 +948,19 @@ function calcAmortizacion(capital, tasaMensual, numCuotas, fechaInicio, formaPag
   return cuotas;
 }
 
-function calcEstadoCuota(cuota){
+function modalidadLabel(m){
+  if(m==='capital_interes_fijo'||m==='capital_interes') return 'Capital + Interés (Fijo)';
+  if(m==='capital_interes_amortizable') return 'Capital + Interés (Amortizable)';
+  if(m==='solo_interes_fijo'||m==='solo_interes') return 'Solo Interés (Fijo)';
+  if(m==='solo_interes_amortizable') return 'Solo Interés (Amortizable)';
+  return m||'—';
+}
+function esSoloInteres(m){ return m==='solo_interes_fijo'||m==='solo_interes_amortizable'||m==='solo_interes'; }
+function esCapitalInteres(m){ return m==='capital_interes_fijo'||m==='capital_interes_amortizable'||m==='capital_interes'; }
+function esFijo(m){ return m==='capital_interes_fijo'||m==='solo_interes_fijo'||m==='capital_interes'||m==='solo_interes'; }
+function esAmortizable(m){ return m==='capital_interes_amortizable'||m==='solo_interes_amortizable'; }
+
+
   if(cuota.abono>=cuota.amortizacion)return'PAGADO';
   if(cuota.estado==='PARCIAL')return'PARCIAL';
   if(cuota.fechaCuota<today())return'VENCIDA';
@@ -1353,8 +1401,10 @@ function renderNuevoPrestamo(){
             </div>
             <div class="form-field"><label class="required">Modalidad</label>
               <select id="np-modalidad" onchange="npActualizar()">
-                <option value="capital_interes">Capital + Interés</option>
-                <option value="solo_interes">Solo Intereses</option>
+                <option value="capital_interes_fijo">Capital + Interés (Fijo)</option>
+                <option value="capital_interes_amortizable">Capital + Interés (Amortizable)</option>
+                <option value="solo_interes_fijo">Solo Interés (Fijo)</option>
+                <option value="solo_interes_amortizable">Solo Interés (Amortizable)</option>
               </select>
             </div>
           </div>
@@ -1431,19 +1481,19 @@ function npActualizar(){
   const cuotas=calcAmortizacion(monto,tasa,ncuotas,fecha,forma,modalidad);
   const totalInteres=cuotas.reduce((a,c)=>a+c.interes,0);
   const totalPagar=monto+totalInteres;
-  const cuotaNormal=modalidad==='solo_interes'?cuotas[0]?.amortizacion:cuotas[0]?.amortizacion;
-  const cuotaUltima=modalidad==='solo_interes'?cuotas[cuotas.length-1]?.amortizacion:null;
-  const modalidadLabel=modalidad==='solo_interes'?'Solo Intereses':'Capital + Interés';
+  const cuotaNormal=cuotas[0]?.amortizacion;
+  const cuotaUltima=esSoloInteres(modalidad)?cuotas[cuotas.length-1]?.amortizacion:null;
+  const mLabel=modalidadLabel(modalidad);
 
   document.getElementById('np-resumen').innerHTML=`
-    <div style="margin-bottom:10px"><span class="badge badge-purple" style="font-size:12px">Modalidad: ${modalidadLabel}</span> <span class="badge badge-blue" style="font-size:12px">${moneda}</span></div>
+    <div style="margin-bottom:10px"><span class="badge badge-purple" style="font-size:12px">Modalidad: ${mLabel}</span> <span class="badge badge-blue" style="font-size:12px">${moneda}</span></div>
     <div class="ig" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
       <div style="padding:12px;background:var(--blue3);border-radius:var(--radius-sm)"><div style="font-size:11px;color:var(--blue);font-weight:600;margin-bottom:2px">Capital prestado</div><div style="font-size:16px;font-weight:800;color:var(--blue)">${fmtM(monto)}</div></div>
       <div style="padding:12px;background:var(--amber2);border-radius:var(--radius-sm)"><div style="font-size:11px;color:var(--amber);font-weight:600;margin-bottom:2px">Total intereses</div><div style="font-size:16px;font-weight:800;color:var(--amber)">${fmtM(totalInteres)}</div></div>
       <div style="padding:12px;background:var(--green2);border-radius:var(--radius-sm)"><div style="font-size:11px;color:var(--green);font-weight:600;margin-bottom:2px">Total a pagar</div><div style="font-size:16px;font-weight:800;color:var(--green)">${fmtM(totalPagar)}</div></div>
       <div style="padding:12px;background:var(--navy2);border-radius:var(--radius-sm)"><div style="font-size:11px;color:#94a3b8;font-weight:600;margin-bottom:2px">Cuota ${forma.toLowerCase()}</div><div style="font-size:16px;font-weight:800;color:var(--white)">${fmtM(cuotaNormal)}</div></div>
     </div>
-    ${modalidad==='solo_interes'?`<div style="margin-top:10px;padding:10px;background:var(--red2);border-radius:var(--radius-sm);font-size:12px;color:var(--red)"><strong>⚠️ Última cuota:</strong> ${fmtM(cuotaUltima)} (interés + todo el capital)</div>`:''}`;
+    ${esSoloInteres(modalidad)?`<div style="margin-top:10px;padding:10px;background:var(--red2);border-radius:var(--radius-sm);font-size:12px;color:var(--red)"><strong>⚠️ Última cuota:</strong> ${fmtM(cuotaUltima)} (interés + todo el capital)</div>`:''}`;
 
   document.getElementById('np-tabla').innerHTML=`
     <div style="max-height:420px;overflow-y:auto;width:100%">
@@ -1452,7 +1502,7 @@ function npActualizar(){
       <tbody>${cuotas.map(cu=>{
         const diasSemana=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
         const diaSem=diasSemana[new Date(cu.fechaCuota+'T12:00:00').getDay()];
-        return`<tr ${cu.num===cuotas.length&&modalidad==='solo_interes'?'style="background:var(--red2)"':''}>
+        return`<tr ${cu.num===cuotas.length&&esSoloInteres(modalidad)?'style="background:var(--red2)"':''}>
           <td style="text-align:center">${cu.num}</td>
           <td>${fmtDate(cu.fechaCuota)}</td>
           <td style="font-size:11px;color:var(--gray)">${diaSem}</td>
@@ -1804,7 +1854,7 @@ function renderPagos(){
     <div id="pg-seccion-abono" style="display:none">
       <div class="card" style="border-top:3px solid var(--purple)">
         <div class="card-title"><span class="ico">💵</span>Registrar abono a capital</div>
-        <div class="alert alert-info">💡 El abono reduce el capital pendiente y recalcula las cuotas restantes automáticamente.</div>
+        <div class="alert alert-info">💡 El abono reduce el capital pendiente. Según la modalidad, puede recalcular o mantener los intereses.</div>
         <div id="pg-abono-info"></div>
         <div class="form-row c3 fr3" style="margin-top:12px">
           <div class="form-field"><label class="required">Monto del abono</label>
@@ -1850,7 +1900,8 @@ function renderPagos(){
           <td style="color:var(--red)">${pg.multa?((pg.moneda||'RD$')+' '+parseFloat(pg.multa).toLocaleString('es-DO',{minimumFractionDigits:2})):'—'}</td>
           <td><span class="badge badge-blue">${escHtml(pg.metodo||'Efectivo')}</span></td>
           <td><div style="display:flex;gap:4px">
-            ${!pg.tipo||pg.tipo!=='ABONO'?`<button class="btn btn-secondary btn-sm" onclick="imprimirRecibo('${pg.id}')">🖨️</button>`:''}
+            ${pg.tipo==='ABONO'?`<button class="btn btn-secondary btn-sm" onclick="imprimirReciboAbono('${pg.idPrestamo}','${pg.fecha}',${pg.monto},'${pg.metodo||'Efectivo'}','${pg.cobrador||''}','')">🖨️</button>`:
+              `<button class="btn btn-secondary btn-sm" onclick="imprimirRecibo('${pg.id}')">🖨️</button>`}
             ${can('usuarios')?`<button class="btn btn-red btn-sm" onclick="${pg.tipo==='ABONO'?`abEliminar('${pg.id}')`:`pgEliminarPago('${pg.id}')`}">🗑</button>`:''}
           </div></td>
         </tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:var(--gray);padding:20px">Sin registros</td></tr>'}
@@ -1933,7 +1984,7 @@ function pgMostrarCuotas(){
     <div style="background:var(--gray2);padding:14px;border-radius:var(--radius-sm);font-size:13px;margin-top:10px">
       <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
         <div><div style="font-size:11px;color:var(--gray);font-weight:600">Cliente</div><div style="font-weight:700">${escHtml(p.nombreCliente)}</div><div style="font-size:11px;color:var(--gray)">${escHtml(p.cedula||'')}</div></div>
-        <div><div style="font-size:11px;color:var(--gray);font-weight:600">Préstamo</div><div class="mono" style="font-weight:700;color:var(--blue)">${escHtml(p.id)}</div><div style="font-size:11px"><span class="badge badge-purple">${p.modalidad==='solo_interes'?'Solo Intereses':'Capital + Interés'}</span></div></div>
+        <div><div style="font-size:11px;color:var(--gray);font-weight:600">Préstamo</div><div class="mono" style="font-weight:700;color:var(--blue)">${escHtml(p.id)}</div><div style="font-size:11px"><span class="badge badge-purple">${modalidadLabel(p.modalidad)}</span></div></div>
         <div><div style="font-size:11px;color:var(--gray);font-weight:600">Forma pago</div><div style="font-weight:600">${p.formaPago}</div><div style="font-size:11px;color:var(--gray)">Entregado: ${escHtml(p.entrega||'Efectivo')}</div></div>
       </div>
       <div class="ig" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">
@@ -2023,7 +2074,7 @@ function pgRegistrarPago(idPrestamo,numCuota){
         <div><strong>Préstamo:</strong> <span class="mono" style="color:var(--blue)">${idPrestamo}</span></div>
         <div><strong>Cliente:</strong> ${escHtml(p.nombreCliente)}</div>
         <div><strong>Vence:</strong> <span style="color:${dias>0?'var(--red)':'var(--gray)'}">${fmtDate(cu.fechaCuota)}</span></div>
-        <div><strong>Modalidad:</strong> <span class="badge badge-purple" style="font-size:10px">${p.modalidad==='solo_interes'?'Solo Intereses':'Cap+Interés'}</span></div>
+        <div><strong>Modalidad:</strong> <span class="badge badge-purple" style="font-size:10px">${modalidadLabel(p.modalidad)}</span></div>
       </div>
       <div class="ig" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
         <div style="padding:6px;background:var(--white);border-radius:var(--radius-sm)"><div style="font-size:9px;color:var(--gray)">Capital</div><div style="font-weight:700;font-size:12px">${fmtP(capitalFijo)}</div></div>
@@ -2389,7 +2440,7 @@ function imprimirFacturaConDatos(p,c,cliente,montoLetras,tituloModal){
         <div class="ig" style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
           <div><span class="info-label">Préstamo:</span> <strong>${p._preview?"COTIZACIÓN":escHtml(p.id)}</strong></div>
           <div><span class="info-label">Fecha:</span> ${fmtDate(p.fechaSolicitud)}</div>
-          <div><span class="info-label">Modalidad:</span> ${p.modalidad==='solo_interes'?'Solo Intereses':'Capital+Interés'}</div>
+          <div><span class="info-label">Modalidad:</span> ${modalidadLabel(p.modalidad)}</div>
           <div><span class="info-label">Forma pago:</span> ${p.formaPago}</div>
           <div><span class="info-label">Cuotas:</span> ${p.numCuotas}</div>
           <div><span class="info-label">Tasa:</span> ${p.tasa}% mensual</div>
@@ -2992,7 +3043,7 @@ function renderAbonos(){
           </div>
         </div>
         <div class="alert alert-info" style="margin-top:8px">
-          💡 Un abono a capital reduce el saldo pendiente y <strong>recalcula las cuotas restantes</strong> automáticamente.
+          💡 El abono reduce el capital. En modalidad Fija, los intereses no cambian. En Amortizable, los intereses bajan.
         </div>
         <div class="btn-row">
           <button class="btn btn-primary" onclick="abRegistrar()">💵 Registrar abono</button>
@@ -3016,7 +3067,29 @@ function renderAbonos(){
     </div>`;
 }
 
-function abFiltrarPrestamos(){
+function pgEliminarPago(id){
+  if(!can('usuarios')){toast('Sin permiso','error');return;}
+  openModal('Eliminar pago',`<div class="alert alert-danger">¿Eliminar este registro de pago? Se revertirá la cuota asociada a PENDIENTE.</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+     <button class="btn btn-red" onclick="pgEliminarPagoConfirm('${id}')">Eliminar</button>`);
+}
+function pgEliminarPagoConfirm(id){
+  const pg = DB.pagos.find(x=>x.id===id);
+  if(pg){
+    const p = DB.prestamos.find(x=>x.id===pg.idPrestamo);
+    if(p){
+      const cu = p.cuotas.find(x=>x.num===pg.numCuota);
+      if(cu){ cu.abono=0; cu.fechaPago=null; cu.mora=0; cu.multa=0; cu.estado='PENDIENTE'; cu._estadoForzado=null; }
+      if(p.estado==='CANCELADO') p.estado='ACTIVO';
+      sDB('prestamos');
+    }
+  }
+  DB.pagos = DB.pagos.filter(x=>x.id!==id);
+  sDB('pagos');
+  closeModal(); toast('Pago eliminado','success'); renderPagos();
+}
+
+
   const idCliente=document.getElementById('ab-cliente').value;
   const sel=document.getElementById('ab-prest');
   sel.innerHTML='<option value="">— Seleccionar préstamo —</option>';
@@ -3079,11 +3152,33 @@ function abRegistrarDesdeModal(){
       <div style="display:flex;justify-content:space-between"><span>Cuotas restantes:</span><strong>${cuotasRest.length}</strong></div>
       ${cuotasRest.length?'<div style="display:flex;justify-content:space-between"><span>Nueva cuota:</span><strong>'+fmtP(cuotasRest[0].amortizacion)+'</strong></div>':'<div style="color:var(--green);font-weight:700">🎉 Capital completamente pagado</div>'}
     </div>`,
-    `<button class="btn btn-secondary" onclick="closeModal();renderPagos()">Continuar</button>`);
+    `<button class="btn btn-secondary" onclick="closeModal();renderPagos()">Continuar</button>
+     <button class="btn btn-primary" onclick="imprimirReciboAbono('${idPrestamo}','${fecha}',${monto},'${metodo}','${cobrador}','${notas}')">🖨️ Recibo Abono</button>`);
 }
 
 
-function abRegistrarPagosEnHistorial(p, montoAbono, fecha, metodo, cobrador){
+function imprimirReciboAbono(idPrestamo, fecha, monto, metodo, cobrador, notas){
+  const p = DB.prestamos.find(x=>x.id===idPrestamo);
+  if(!p){toast('Préstamo no encontrado','error');return;}
+  // Buscar el abono recién registrado
+  const ab = (DB.abonos||[]).filter(x=>x.idPrestamo===idPrestamo).slice(-1)[0];
+  const pgTemp = {
+    id: ab ? ab.id : ('AB-'+Date.now()),
+    idPrestamo, idCliente: p.idCliente,
+    nombreCliente: p.nombreCliente,
+    numCuota: '—',
+    fechaVencimiento: '—',
+    monto: parseFloat(monto),
+    multa: 0,
+    fecha, metodo, cobrador, notas,
+    moneda: p.moneda||'RD$',
+    origenAbono: true,
+    tipo: 'ABONO'
+  };
+  imprimirReciboConDatos(pgTemp, p, null, 'Recibo de Abono a Capital');
+}
+
+
   // Registrar en DB.pagos cada cuota que quedó PAGADA gracias al abono
   // para que aparezca en el historial de pagos del módulo Pagos
   const monedaP = p.moneda||'RD$';
@@ -3179,91 +3274,157 @@ function abRegistrar(){
 }
 
 function abRecalcular(p, montoAbono, fechaAbono){
-  // LÓGICA DE ABONOS A CAPITAL:
-  // Anticipado (abono antes de vencimiento):
-  //   - Cuota cubierta completamente: PAGADA sin interés
-  //   - Cuota cubierta parcialmente: capital se reduce, interés se reduce
-  //     proporcionalmente al capital restante vs capital original
-  // Vencido (abono en o después de vencimiento):
-  //   - El interés completo se cobra primero, luego aplica al capital
-  //   - Cuota cubierta completamente: PAGADA con interés completo
-  //   - Cuota cubierta parcialmente: PARCIAL, interés proporcional a días
+  // Compatibilidad: normalizar modalidad vieja
+  if(p.modalidad==='capital_interes') p.modalidad='capital_interes_fijo';
+  if(p.modalidad==='solo_interes') p.modalidad='solo_interes_fijo';
 
   const fechaAb = fechaAbono || today();
   let saldo = parseFloat(montoAbono);
+  const tasa = parseFloat(p.tasa)/100;
+  const modalidad = p.modalidad;
 
   const cuotasPend = p.cuotas.filter(cu => calcEstadoCuota(cu) !== 'PAGADO')
                               .sort((a,b) => a.num - b.num);
 
-  // Guardar capital original de cada cuota para cálculo proporcional
+  // Guardar originales
   for(const cu of cuotasPend){
     if(!cu._capitalOriginal) cu._capitalOriginal = cu.capital;
     if(!cu._interesOriginal) cu._interesOriginal = cu.interes;
   }
 
-  for(const cu of cuotasPend){
-    if(saldo <= 0) break;
+  if(esCapitalInteres(modalidad)){
+    // ── CAPITAL + INTERÉS ──────────────────────────────────────
+    for(const cu of cuotasPend){
+      if(saldo <= 0) break;
+      const esAnticipado = fechaAb < cu.fechaCuota;
+      const yaAbonado = cu.abono || 0;
 
-    const esAnticipado = fechaAb < cu.fechaCuota;
-    const capOrig = cu._capitalOriginal || cu.capital;
-    const intOrig = cu._interesOriginal || cu.interes;
-    const yaAbonado = cu.abono || 0;
+      if(esFijo(modalidad)){
+        // FIJO: interés completo siempre. Abono va al capital.
+        // Si cubre la cuota completa → PAGADA (cobra interés completo)
+        // Si es pago parcial → el interés se queda completo (fijo), no se reduce
+        const totalPend = parseFloat(Math.max(0, cu.amortizacion - yaAbonado).toFixed(2));
+        if(totalPend <= 0){ cu.estado='PAGADO'; continue; }
 
-    if(esAnticipado){
-      // ANTICIPADO: el interés se reduce proporcionalmente al capital que queda
-      const capPendiente = parseFloat(Math.max(0, cu.capital - yaAbonado).toFixed(2));
-      if(capPendiente <= 0){ cu.estado='PAGADO'; cu.interes=0; cu.amortizacion=0; continue; }
-
-      if(saldo >= capPendiente){
-        // Cubre todo el capital pendiente → PAGADA sin interés
-        cu.abono = parseFloat((yaAbonado + capPendiente).toFixed(2));
-        cu.capital = 0;
-        cu.interes = 0;
-        cu.amortizacion = 0;
-        cu.estado = 'PAGADO';
-        cu.fechaPago = fechaAb;
-        saldo = parseFloat((saldo - capPendiente).toFixed(2));
+        if(saldo >= totalPend){
+          cu.abono = parseFloat((yaAbonado + totalPend).toFixed(2));
+          cu.estado = 'PAGADO';
+          cu.fechaPago = fechaAb;
+          saldo = parseFloat((saldo - totalPend).toFixed(2));
+        } else {
+          // Pago parcial: interés fijo se queda, solo va al saldo de la cuota
+          cu.abono = parseFloat((yaAbonado + saldo).toFixed(2));
+          cu.estado = 'PARCIAL';
+          cu.fechaPago = fechaAb;
+          saldo = 0;
+        }
       } else {
-        // Cubre parcialmente el capital → reducir capital e interés proporcionalmente
-        const nuevoCapital = parseFloat(Math.max(0, cu.capital - saldo).toFixed(2));
-        const proporcion = capOrig > 0 ? nuevoCapital / capOrig : 0;
-        const nuevoInteres = parseFloat((intOrig * proporcion).toFixed(2));
-        cu.abono = parseFloat((yaAbonado + saldo).toFixed(2));
-        cu.capital = nuevoCapital;
-        cu.interes = nuevoInteres;
-        cu.amortizacion = parseFloat((nuevoCapital + nuevoInteres).toFixed(2));
-        cu.estado = 'PARCIAL';
-        cu.fechaPago = fechaAb;
-        saldo = 0;
+        // AMORTIZABLE: si abona, recalcular capital pendiente e interés
+        const capPend = parseFloat(Math.max(0, cu.capital - (cu._capitalAbonado||0)).toFixed(2));
+        const intPend = parseFloat(Math.max(0, cu.interes - (cu._interesAbonado||0)).toFixed(2));
+        const totalPend = parseFloat((capPend + intPend).toFixed(2));
+        if(totalPend <= 0){ cu.estado='PAGADO'; continue; }
+
+        if(esAnticipado){
+          // Anticipado: abono va al capital, sin cobrar interés de esas cuotas
+          if(saldo >= capPend){
+            cu.abono = parseFloat((yaAbonado + capPend).toFixed(2));
+            cu.capital = 0;
+            cu.interes = 0;
+            cu.amortizacion = 0;
+            cu.estado = 'PAGADO';
+            cu.fechaPago = fechaAb;
+            saldo = parseFloat((saldo - capPend).toFixed(2));
+          } else {
+            const nuevoCapital = parseFloat(Math.max(0, cu.capital - saldo).toFixed(2));
+            const nuevoInteres = parseFloat((nuevoCapital * tasa).toFixed(2));
+            cu.abono = parseFloat((yaAbonado + saldo).toFixed(2));
+            cu.capital = nuevoCapital;
+            cu.interes = nuevoInteres;
+            cu.amortizacion = parseFloat((nuevoCapital + nuevoInteres).toFixed(2));
+            cu.estado = 'PARCIAL';
+            cu.fechaPago = fechaAb;
+            saldo = 0;
+          }
+        } else {
+          // Vencido: paga interés primero, luego capital
+          if(!cu._interesAbonado) cu._interesAbonado = 0;
+          if(!cu._capitalAbonado) cu._capitalAbonado = 0;
+          if(saldo >= totalPend){
+            cu.abono = parseFloat((yaAbonado + totalPend).toFixed(2));
+            cu.estado = 'PAGADO';
+            cu.fechaPago = fechaAb;
+            saldo = parseFloat((saldo - totalPend).toFixed(2));
+          } else {
+            const pagoInteres = Math.min(saldo, intPend);
+            const pagoCapital = parseFloat(Math.min(saldo - pagoInteres, capPend).toFixed(2));
+            cu._interesAbonado = parseFloat((cu._interesAbonado + pagoInteres).toFixed(2));
+            cu._capitalAbonado = parseFloat((cu._capitalAbonado + pagoCapital).toFixed(2));
+            cu.abono = parseFloat((yaAbonado + saldo).toFixed(2));
+            // Recalcular cuota con nuevo capital
+            const newCap = parseFloat(Math.max(0, cu.capital - pagoCapital).toFixed(2));
+            const newInt = parseFloat((newCap * tasa).toFixed(2));
+            cu.capital = newCap;
+            cu.interes = newInt;
+            cu.amortizacion = parseFloat((newCap + newInt).toFixed(2));
+            cu.estado = 'PARCIAL';
+            cu.fechaPago = fechaAb;
+            saldo = 0;
+          }
+        }
+
+        // Recalcular cuotas SIGUIENTES (amortizable): el interés baja con el nuevo capital
+        if(saldo <= 0 && esAmortizable(modalidad)){
+          // Para las cuotas restantes tras la abonada, recalcular interés sobre nuevo capital pendiente
+          const cuotaActualIdx = cuotasPend.indexOf(cu);
+          let nuevoSaldoCap = cuotasPend.slice(cuotaActualIdx+1).reduce((a,x)=>a+x.capital,0);
+          // Reproporcionar el capital pendiente total
+          const capitalPorCuotaNuevo = cuotasPend.slice(cuotaActualIdx+1).length > 0 ?
+            parseFloat((nuevoSaldoCap / cuotasPend.slice(cuotaActualIdx+1).length).toFixed(2)) : 0;
+          cuotasPend.slice(cuotaActualIdx+1).forEach(cuSig => {
+            if(calcEstadoCuota(cuSig)==='PAGADO') return;
+            const nuevoInt = parseFloat((cuSig.capital * tasa).toFixed(2));
+            cuSig.interes = nuevoInt;
+            cuSig.amortizacion = parseFloat((cuSig.capital + nuevoInt).toFixed(2));
+          });
+        }
       }
-    } else {
-      // VENCIDO: interés completo se cobra primero, resto aplica a capital
-      const interesPend = parseFloat(Math.max(0, cu.interes - (cu._interesAbonado||0)).toFixed(2));
-      const capPend = parseFloat(Math.max(0, cu.capital - (cu._capitalAbonado||0)).toFixed(2));
-      const totalPend = parseFloat((interesPend + capPend).toFixed(2));
-      if(totalPend <= 0){ cu.estado='PAGADO'; continue; }
+    }
+  } else {
+    // ── SOLO INTERÉS ──────────────────────────────────────────
+    // Las cuotas NO se eliminan — el abono reduce el capital
+    // Fijo: interés no cambia aunque baje el capital
+    // Amortizable: interés baja proporcionalmente al nuevo capital
 
-      if(saldo >= totalPend){
-        // Cubre la cuota completa
-        cu.abono = parseFloat((yaAbonado + totalPend).toFixed(2));
-        cu.amortizacion = parseFloat((cu.capital + cu.interes).toFixed(2));
-        cu.estado = 'PAGADO';
-        cu.fechaPago = fechaAb;
-        saldo = parseFloat((saldo - totalPend).toFixed(2));
-      } else {
-        // Cubre parcialmente — pagar interés primero, luego capital
-        let restante = saldo;
-        if(!cu._interesAbonado) cu._interesAbonado = 0;
-        if(!cu._capitalAbonado) cu._capitalAbonado = 0;
-        const pagoInteres = Math.min(restante, interesPend);
-        restante = parseFloat((restante - pagoInteres).toFixed(2));
-        const pagoCapital = Math.min(restante, capPend);
-        cu._interesAbonado = parseFloat((cu._interesAbonado + pagoInteres).toFixed(2));
-        cu._capitalAbonado = parseFloat((cu._capitalAbonado + pagoCapital).toFixed(2));
-        cu.abono = parseFloat((yaAbonado + saldo).toFixed(2));
-        cu.estado = 'PARCIAL';
-        cu.fechaPago = fechaAb;
-        saldo = 0;
+    // Calcular nuevo capital pendiente después del abono
+    const capitalPagado = p.cuotas.filter(cu=>calcEstadoCuota(cu)==='PAGADO').reduce((a,cu)=>a+cu.capital,0);
+    const capitalPendienteActual = parseFloat((p.capital - capitalPagado).toFixed(2));
+    const nuevoCapital = parseFloat(Math.max(0, capitalPendienteActual - saldo).toFixed(2));
+
+    if(esAmortizable(modalidad)){
+      // Recalcular interés en todas las cuotas pendientes
+      const nuevoInteres = parseFloat((nuevoCapital * tasa).toFixed(2));
+      for(const cu of cuotasPend){
+        if(calcEstadoCuota(cu)==='PAGADO') continue;
+        if(cu.num === p.cuotas.length){
+          // Última cuota: capital + interés
+          cu.capital = nuevoCapital;
+          cu.interes = nuevoInteres;
+          cu.amortizacion = parseFloat((nuevoCapital + nuevoInteres).toFixed(2));
+        } else {
+          cu.interes = nuevoInteres;
+          cu.amortizacion = nuevoInteres;
+          // Capital sigue en 0 (se paga al final)
+        }
+      }
+    }
+    // Para fijo: los intereses de las cuotas NO cambian (se quedan igual)
+    // Solo actualizamos el capital en la última cuota
+    if(esFijo(modalidad)){
+      const ultimaCuota = p.cuotas[p.cuotas.length-1];
+      if(ultimaCuota && calcEstadoCuota(ultimaCuota)!=='PAGADO'){
+        ultimaCuota.capital = nuevoCapital;
+        ultimaCuota.amortizacion = parseFloat((nuevoCapital + ultimaCuota.interes).toFixed(2));
       }
     }
   }
