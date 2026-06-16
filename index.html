@@ -94,7 +94,7 @@ body.rol-visitante .btn-primary,body.rol-visitante .btn-green,body.rol-visitante
 /* LAYOUT */
 .layout{display:flex;min-height:calc(100vh - 56px)}
 /* SIDEBAR */
-.sidebar{width:240px;background:#f8fafd;border-right:1px solid var(--gray3);flex-shrink:0;padding:16px 0;overflow-y:auto}
+.sidebar{width:240px;background:#f8fafd;border-right:1px solid var(--gray3);flex-shrink:0;padding:16px 0;overflow-y:auto;position:sticky;top:56px;height:calc(100vh - 56px);align-self:flex-start}
 .sidebar-section{margin-bottom:8px}
 .sidebar-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--gray);padding:8px 16px 4px}
 .nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;border-radius:0;font-size:13px;font-weight:500;color:var(--navy3);transition:.15s;border-left:3px solid transparent}
@@ -2487,8 +2487,8 @@ function imprimirReciboConDatos(pg,p,cuota,tituloModal){
       <div><span style="color:#64748b;font-weight:600">CLIENTE:</span><div style="font-weight:700;color:#0f172a">${escHtml(pg.nombreCliente||'—')}</div></div>
       <div><span style="color:#64748b;font-weight:600">PRÉSTAMO:</span><div style="font-weight:700;color:#2563eb;font-family:monospace">${escHtml(pg.idPrestamo||'—')}</div></div>
       ${pg.origenAbono
-        ? `<div style="grid-column:1/-1"><span style="color:#7c3aed;font-weight:600">CONCEPTO:</span><div style="font-weight:700;color:#7c3aed">💵 Abono a capital — Cuota #${pg.numCuota||'—'} saldada</div></div>`
-        : `<div><span style="color:#64748b;font-weight:600">CUOTA #:</span><div style="font-weight:700">${pg.numCuota||'—'}</div></div>`}
+        ? `<div style="grid-column:1/-1"><span style="color:#7c3aed;font-weight:600">CONCEPTO:</span><div style="font-weight:700;color:#7c3aed">💵 Abono al Capital</div></div>`
+        : `<div style="grid-column:1/-1"><span style="color:#1d4ed8;font-weight:600">CONCEPTO:</span><div style="font-weight:700;color:#1d4ed8">💳 Cuota #${pg.numCuota||'—'} Saldada</div></div>`}
       <div><span style="color:#64748b;font-weight:600">FECHA PAGO:</span><div style="font-weight:700">${fmtDate(pg.fecha)}</div></div>
       ${!pg.origenAbono?`<div><span style="color:#64748b;font-weight:600">VENCIMIENTO:</span><div style="font-weight:700;color:${new Date(pg.fechaVencimiento+'T12:00:00')<new Date(pg.fecha+'T12:00:00')?'#dc2626':'#0f172a'}">${fmtDate(pg.fechaVencimiento)}</div></div>`:''}
       <div><span style="color:#64748b;font-weight:600">MÉTODO:</span><div style="font-weight:700">${escHtml(pg.metodo||'Efectivo')}</div></div>
