@@ -4552,12 +4552,41 @@ function renderConfig(){
           <button class="btn" style="background:var(--purple);color:#fff" onclick="toggleModoEditor()">✏️ Modo edición en línea</button>
         </div>
       </div>`:''}
+      ${isDueno()?`
+      <div class="card" style="border-top:3px solid var(--green)">
+        <div class="card-title"><span class="ico">🛠️</span>Mantenimiento</div>
+        <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Recalcula las fechas de cobro de TODOS los préstamos con forma de pago MENSUAL, aplicando la regla: mismo día cada mes; si el día original es 31, en meses de 30 días se cobra el 30; en Febrero se cobra el último día real del mes (28 o 29 según el año). No modifica montos, abonos ni el estado de las cuotas, solo las fechas.</p>
+        <div class="btn-row"><button class="btn btn-amber" onclick="corregirFechasMensuales()">📅 Corregir fechas de cobro mensuales</button></div>
+      </div>`:''}
       <div class="card" style="border-top:3px solid var(--red)">
         <div class="card-title"><span class="ico">⚠️</span>Zona de peligro</div>
         <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Elimina todos los datos del sistema (clientes, préstamos, pagos). Útil para empezar desde cero.</p>
         <div class="btn-row"><button class="btn btn-red" onclick="cfResetDatos()">🗑 Resetear todos los datos</button></div>
       </div>
     </div>`;
+}
+
+function corregirFechasMensuales(){
+  const prestamosMensuales=DB.prestamos.filter(p=>p.formaPago==='Mensual');
+  if(!prestamosMensuales.length){toast('No hay préstamos con forma de pago Mensual','error');return;}
+  if(!confirm('Esto recalculará las fechas de cobro de los '+prestamosMensuales.length+' préstamo(s) MENSUAL(ES), incluyendo cuotas ya pagadas. Solo se ajustan las fechas (no montos ni abonos). ¿Deseas continuar?')) return;
+  let prestamosAfectados=0, cuotasAfectadas=0;
+  prestamosMensuales.forEach(p=>{
+    const nuevasCuotas=calcAmortizacion(p.capital,p.tasa,p.numCuotas,p.fechaSolicitud,p.formaPago,p.modalidad);
+    let cambioEnPrestamo=false;
+    p.cuotas.forEach((c,idx)=>{
+      const nueva=nuevasCuotas[idx];
+      if(nueva && c.fechaCuota!==nueva.fechaCuota){
+        c.fechaCuota=nueva.fechaCuota;
+        cuotasAfectadas++;
+        cambioEnPrestamo=true;
+      }
+    });
+    if(cambioEnPrestamo) prestamosAfectados++;
+  });
+  sDB('prestamos');
+  addLog('PRESTAMO','Corrección masiva de fechas de cobro mensuales: '+prestamosAfectados+' préstamo(s), '+cuotasAfectadas+' cuota(s)');
+  toast('✅ Fechas corregidas: '+prestamosAfectados+' préstamo(s), '+cuotasAfectadas+' cuota(s) actualizadas','success');
 }
 
 function cfGuardar(){
